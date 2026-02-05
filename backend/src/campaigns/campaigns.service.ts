@@ -138,8 +138,8 @@ export class CampaignsService {
       let contactMessage = contact.message || message;
 
       // 🚀 ANTI-BAN: Sempre envolver mensagem com saudações hardcoded
-      // Se a mensagem ainda não é JSON de greeting, criar o payload
-      if (contactMessage && !contactMessage.trim().startsWith('{')) {
+      // Se a mensagem for vazia (CSV simplificado) OU não for JSON de greeting, criar o payload
+      if (!contactMessage || (contactMessage && !contactMessage.trim().startsWith('{'))) {
         const HARDCODED_GREETINGS = [
           "Fala, irmão! Já fez a fézinha da semana?",
           "E aí, bro! Já garantiu a fézinha dessa semana?",

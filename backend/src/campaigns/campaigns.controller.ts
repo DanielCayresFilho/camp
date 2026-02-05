@@ -79,14 +79,23 @@ export class CampaignsController {
           console.log("📝 [Campaigns] Row do CSV:", row);
           // Ignorar linhas vazias ou sem telefone
           // Limpeza robusta do telefone: manter apenas dígitos
-          const phoneRaw = (row.phone || '').toString();
+          // Identificar coluna de telefone (vários aliases possíveis)
+          const phoneKey = Object.keys(row).find(k =>
+            ['phone', 'telefone', 'celular', 'mobile', 'tel', 'zap', 'contact', 'contato'].includes(k.toLowerCase().trim())
+          );
+
+          const phoneRaw = (phoneKey ? row[phoneKey] : (row.phone || row.telefone || '')).toString();
           const phoneClean = phoneRaw.replace(/\D/g, '');
 
           // Validar se sobrou um número válido (pelo menos 8 dígitos)
           if (phoneClean.length < 8) return;
 
+          // Identificar nome
+          const nameKey = Object.keys(row).find(k => ['name', 'nome', 'cliente', 'customer'].includes(k.toLowerCase().trim()));
+          const nameVal = nameKey ? row[nameKey] : (row.name || row.nome || '');
+
           contacts.push({
-            name: row.name || '', // Nome opcional, envia vazio se não tiver
+            name: nameVal || '', // Nome opcional, envia vazio se não tiver
             phone: phoneClean,
             cpf: row.cpf || undefined,
             contract: row.contrato || row.contract || undefined,
