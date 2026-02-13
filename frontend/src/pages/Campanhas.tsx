@@ -240,8 +240,14 @@ export default function Campanhas() {
       // The requirement: "podemos deixar setado varias formas de chama tipo 'Olá tudo bem?'..."
 
       let finalMessage = formData.message.trim();
-      // Always use hardcoded greetings for anti-ban flow if message is present
-      if (finalMessage) {
+
+      // Se estiver usando template, ignoramos a mensagem de texto e forçamos vazio
+      // Isso sinaliza pro Backend usar o fluxo de Template (com __TEMPLATE_FLOW__)
+      if (formData.useTemplate) {
+        finalMessage = "";
+      }
+      // Se NÃO usar template e tiver mensagem, aplica wrapper de saudação (anti-ban)
+      else if (finalMessage) {
         // Create JSON payload for Greeting Flow
         finalMessage = JSON.stringify({
           greeting: HARDCODED_GREETINGS,
@@ -263,7 +269,9 @@ export default function Campanhas() {
         const uploadResult = await campaignsService.uploadCSV(
           campaign.id,
           csvFile,
-          finalMessage || undefined
+          finalMessage || undefined,
+          formData.useTemplate,
+          formData.useTemplate && formData.templateId ? parseInt(formData.templateId) : undefined
         );
 
         setResultData({
@@ -397,13 +405,24 @@ export default function Campanhas() {
 
               <div className="space-y-2">
                 <Label htmlFor="message">Mensagem (opcional)</Label>
-                <Textarea
-                  id="message"
-                  value={formData.message}
-                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                  placeholder="Digite a mensagem da campanha..."
-                  rows={3}
-                />
+                <div className="relative">
+                  <Textarea
+                    id="message"
+                    value={formData.message}
+                    onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                    placeholder={formData.useTemplate ? "Ao usar Template, a mensagem de texto é ignorada." : "Digite a mensagem da campanha..."}
+                    rows={3}
+                    disabled={formData.useTemplate}
+                    className={formData.useTemplate ? "opacity-50 cursor-not-allowed bg-muted" : ""}
+                  />
+                  {formData.useTemplate && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <span className="text-sm font-medium text-muted-foreground bg-background/80 px-2 py-1 rounded">
+                        Template selecionado (Texto desativado)
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Greeting Configuration Removed - Using Hardcoded List */}

@@ -528,10 +528,12 @@ export const campaignsService = {
     });
   },
 
-  uploadCSV: async (id: number, file: File, message?: string): Promise<{ contactsAdded: number }> => {
+  uploadCSV: async (id: number, file: File, message?: string, useTemplate?: boolean, templateId?: number): Promise<{ contactsAdded: number }> => {
     const formData = new FormData();
     formData.append('file', file);
     if (message) formData.append('message', message);
+    if (useTemplate !== undefined) formData.append('useTemplate', String(useTemplate));
+    if (templateId !== undefined) formData.append('templateId', String(templateId));
 
     const token = getAuthToken();
     const response = await fetch(`${API_BASE_URL}/campaigns/${id}/upload`, {
