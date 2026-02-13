@@ -11,7 +11,7 @@ export class TemplatesService {
   constructor(
     private prisma: PrismaService,
     private phoneValidationService: PhoneValidationService,
-  ) {}
+  ) { }
 
   async create(createTemplateDto: CreateTemplateDto) {
     try {
@@ -27,14 +27,14 @@ export class TemplatesService {
       }
 
       // Serializar arrays para JSON (tratar arrays vazios como null)
-      const buttons = createTemplateDto.buttons && createTemplateDto.buttons.length > 0 
-        ? JSON.stringify(createTemplateDto.buttons) 
+      const buttons = createTemplateDto.buttons && createTemplateDto.buttons.length > 0
+        ? JSON.stringify(createTemplateDto.buttons)
         : null;
       const variables = createTemplateDto.variables && createTemplateDto.variables.length > 0
         ? JSON.stringify(createTemplateDto.variables)
         : null;
 
-      return this.prisma.template.create({
+      const created = await this.prisma.template.create({
         data: {
           name: createTemplateDto.name,
           language: createTemplateDto.language || 'pt_BR',
@@ -51,6 +51,12 @@ export class TemplatesService {
           status: 'APPROVED',  // Templates internos já vêm aprovados
         },
       });
+
+      return {
+        ...created,
+        buttons: created.buttons ? JSON.parse(created.buttons) : null,
+        variables: created.variables ? JSON.parse(created.variables) : null,
+      };
     } catch (error) {
       console.error('❌ [TemplatesService] Erro ao criar template:', error);
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
@@ -294,7 +300,7 @@ export class TemplatesService {
       };
     } catch (error) {
       console.error('Erro ao sincronizar template:', error.response?.data || error.message);
-      
+
       await this.prisma.template.update({
         where: { id },
         data: { status: 'REJECTED' },
@@ -311,14 +317,14 @@ export class TemplatesService {
    */
   async sendTemplate(dto: SendTemplateDto) {
     const template = await this.findOne(dto.templateId);
-    
+
     // Normalizar telefone (remover espaços, hífens, adicionar 55 se necessário)
     const normalizedPhone = this.phoneValidationService.cleanPhone(dto.phone);
     dto.phone = normalizedPhone;
-    
+
     // Usar lineId do DTO ou do template
     const lineId = dto.lineId || template.lineId;
-    
+
     const line = await this.prisma.linesStock.findUnique({
       where: { id: lineId },
     });
@@ -581,7 +587,7 @@ export class TemplatesService {
         data: error.response?.data,
         message: error.message,
       });
-      
+
       // Extrair mensagem de erro da resposta
       let errorMessage = error.message;
       if (error.response?.data?.message) {
@@ -593,7 +599,7 @@ export class TemplatesService {
       } else if (error.response?.data?.error) {
         errorMessage = error.response.data.error;
       }
-      
+
       return {
         success: false,
         error: errorMessage,
