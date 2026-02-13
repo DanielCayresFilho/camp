@@ -234,6 +234,16 @@ export class CampaignsProcessor {
               (typeof templateVariables === 'string' ? JSON.parse(templateVariables) : templateVariables)
               : [];
 
+            // 🚀 FEATURE: Variáveis Dinâmicas ({{nome}}, {{name}})
+            variables.forEach((v) => {
+              if (v.value && typeof v.value === 'string') {
+                const valLower = v.value.toLowerCase().trim();
+                if (['{{nome}}', '{{name}}', '{nome}', '{name}', 'nome', 'name'].includes(valLower)) {
+                  v.value = contactName || 'Cliente'; // Fallback se não tiver nome
+                }
+              }
+            });
+
             variables.forEach((v: TemplateVariable, index: number) => {
               templateText = templateText.replace(`{{${index + 1}}}`, v.value);
               templateText = templateText.replace(`{{${v.key}}}`, v.value);

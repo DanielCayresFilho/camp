@@ -87,7 +87,6 @@ export class ControlPanelService {
       autoMessageHours: dto.autoMessageHours,
       autoMessageText: dto.autoMessageText,
       autoMessageMaxAttempts: dto.autoMessageMaxAttempts,
-      autoMessageMaxAttempts: dto.autoMessageMaxAttempts,
       sharedLineMode: dto.sharedLineMode,
       greetingMessages: dto.greetingMessages ? JSON.stringify(dto.greetingMessages) : undefined,
     };

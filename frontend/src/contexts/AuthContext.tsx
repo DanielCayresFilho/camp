@@ -44,18 +44,21 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Map API role to frontend role
 const mapRole = (apiRole: string): UserRole => {
-  switch (apiRole) {
+  const role = apiRole.toLowerCase();
+  switch (role) {
     case "admin":
       return "admin";
     case "supervisor":
       return "supervisor";
     case "operator":
+    case "operador": // Handle both English/Portuguese
       return "operador";
     case "ativador":
       return "ativador";
     case "digital":
       return "digital";
     default:
+      console.warn(`Unknown role: ${apiRole}, defaulting to operator`);
       return "operador";
   }
 };

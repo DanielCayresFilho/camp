@@ -34,6 +34,8 @@ import RelatorioAlocacoes from "./pages/RelatorioAlocacoes";
 import RegrasAlocacao from "./pages/RegrasAlocacao";
 import CriadorRelatorio from "./pages/CriadorRelatorio";
 import CampaignDashboard from "./pages/CampaignDashboard";
+import { DashboardCampanhas } from "./pages/DashboardCampanhas";
+import { ConfiguracaoSaudacao } from "./pages/ConfiguracaoSaudacao";
 
 const queryClient = new QueryClient();
 
@@ -94,6 +96,8 @@ function AppRoutes() {
       <Route path="/tabulacoes" element={<ProtectedRoute><Tabulacoes /></ProtectedRoute>} />
       <Route path="/campanhas" element={<ProtectedRoute><Campanhas /></ProtectedRoute>} />
       <Route path="/campanhas/dashboard" element={<ProtectedRoute><CampaignDashboard /></ProtectedRoute>} />
+      <Route path="/dashboard-campanhas" element={<ProtectedRoute><DashboardCampanhas /></ProtectedRoute>} />
+      <Route path="/config-saudacoes" element={<ProtectedRoute><ConfiguracaoSaudacao /></ProtectedRoute>} />
       <Route path="/linhas" element={<ProtectedRoute><Linhas /></ProtectedRoute>} />
       <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
       <Route path="/blocklist" element={<ProtectedRoute><Blocklist /></ProtectedRoute>} />
