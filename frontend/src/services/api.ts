@@ -47,6 +47,14 @@ async function apiRequest<T>(
   return response.json();
 }
 
+export const api = {
+  get: <T>(endpoint: string) => apiRequest<T>(endpoint, { method: 'GET' }),
+  post: <T>(endpoint: string, body?: any) => apiRequest<T>(endpoint, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
+  put: <T>(endpoint: string, body?: any) => apiRequest<T>(endpoint, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
+  delete: <T>(endpoint: string) => apiRequest<T>(endpoint, { method: 'DELETE' }),
+  patch: <T>(endpoint: string, body?: any) => apiRequest<T>(endpoint, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
+};
+
 // ==================== AUTH ====================
 export interface LoginResponse {
   access_token: string;
@@ -894,10 +902,7 @@ export interface Template {
   footerText?: string;
   variables?: string[];  // Array de nomes de variáveis
   buttons?: any[];  // Array de botões
-  bodyText: string;
-  footerText?: string;
-  buttons?: Array<{ type: string; text: string }>;
-  variables?: string[];
+
   createdAt: string;
   updatedAt: string;
 }
