@@ -234,12 +234,40 @@ export class CampaignsProcessor {
               (typeof templateVariables === 'string' ? JSON.parse(templateVariables) : templateVariables)
               : [];
 
-            // 🚀 FEATURE: Variáveis Dinâmicas ({{nome}}, {{name}})
+            // 🚀 FEATURE: Variáveis Dinâmicas ({{nome}}, {{name}} e colunas do CSV)
+            let csvVariables: Record<string, string> = {};
+
+            // Tentar extrair variáveis do CSV, que podem estar no campo 'message'
+            if (message && message.trim().startsWith('{')) {
+              try {
+                const parsedMessage = JSON.parse(message);
+                // Handle double-stringified
+                const finalParsed = typeof parsedMessage === 'string' ? JSON.parse(parsedMessage) : parsedMessage;
+                if (finalParsed.csvVariables) {
+                  csvVariables = finalParsed.csvVariables;
+                }
+              } catch (e) { /* Ignore parse error */ }
+            }
+
             variables.forEach((v) => {
               if (v.value && typeof v.value === 'string') {
                 const valLower = v.value.toLowerCase().trim();
+                const cleanVal = v.value.replace(/[{{}}]/g, '').trim(); // Remove {{ }} para comparar com chaves do CSV
+
+                // 1. Nome do Contato
                 if (['{{nome}}', '{{name}}', '{nome}', '{name}', 'nome', 'name'].includes(valLower)) {
-                  v.value = contactName || 'Cliente'; // Fallback se não tiver nome
+                  v.value = contactName || 'Cliente';
+                }
+                // 2. Variáveis do CSV (ex: {{link}} -> link do CSV)
+                else if (csvVariables[cleanVal]) {
+                  v.value = csvVariables[cleanVal];
+                }
+                // 3. Fallback: Se for uma chave do CSV mas escrita diferente (case insensitive)
+                else {
+                  const foundKey = Object.keys(csvVariables).find(k => k.toLowerCase() === cleanVal.toLowerCase());
+                  if (foundKey) {
+                    v.value = csvVariables[foundKey];
+                  }
                 }
               }
             });

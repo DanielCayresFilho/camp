@@ -94,6 +94,20 @@ export class CampaignsController {
           const nameKey = Object.keys(row).find(k => ['name', 'nome', 'cliente', 'customer'].includes(k.toLowerCase().trim()));
           const nameVal = nameKey ? row[nameKey] : (row.name || row.nome || '');
 
+          // 🚀 FEATURE: Capturar colunas extras para variáveis dinâmicas (ex: link, codigo, valor)
+          const reservedKeys = [
+            'phone', 'telefone', 'celular', 'mobile', 'tel', 'zap', 'contact', 'contato',
+            'name', 'nome', 'cliente', 'customer',
+            'cpf', 'contrato', 'contract', 'segment', 'mensagem', 'message'
+          ];
+
+          const variables: Record<string, string> = {};
+          Object.keys(row).forEach(key => {
+            if (!reservedKeys.includes(key.toLowerCase().trim())) {
+              variables[key.trim()] = row[key];
+            }
+          });
+
           contacts.push({
             name: nameVal || '', // Nome opcional, envia vazio se não tiver
             phone: phoneClean,
@@ -101,6 +115,7 @@ export class CampaignsController {
             contract: row.contrato || row.contract || undefined,
             segment: row.segment ? parseInt(row.segment) : undefined,
             message: row.mensagem || row.message || undefined, // Mensagem personalizada por contato
+            variables: Object.keys(variables).length > 0 ? variables : undefined // Variáveis extras
           });
         })
         .on("end", async () => {

@@ -5,4 +5,5 @@ export interface CampaignContact {
   contract?: string;
   segment?: number;
   message?: string; // Mensagem personalizada por contato (opcional)
+  variables?: Record<string, string>; // 🚀 Variáveis dinâmicas do CSV
 }

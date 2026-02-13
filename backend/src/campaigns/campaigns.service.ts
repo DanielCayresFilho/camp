@@ -191,7 +191,8 @@ export class CampaignsService {
 
         contactMessage = JSON.stringify({
           greeting: GREETINGS,
-          content: content
+          content: content,
+          csvVariables: contact.variables || {} // 🚀 FEATURE: Armazenar variáveis do CSV
         });
       }
 
