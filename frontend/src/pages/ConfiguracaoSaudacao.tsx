@@ -22,9 +22,9 @@ export function ConfiguracaoSaudacao() {
     const fetchGreetings = async () => {
         try {
             setLoading(true);
-            const response = await api.get("/control-panel");
+            const response = await api.get<{ greetingMessages: string[] }>("/control-panel");
             // Se não tiver saudações configuradas, usar array vazio
-            const currentGreetings = response.data.greetingMessages || [];
+            const currentGreetings = response.greetingMessages || [];
             setGreetings(currentGreetings);
             setOriginalGreetings(currentGreetings);
         } catch (error) {

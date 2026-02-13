@@ -29,8 +29,8 @@ export function DashboardCampanhas() {
 
     const fetchStats = async () => {
         try {
-            const response = await api.get("/campaigns/dashboard-stats");
-            setStats(response.data);
+            const response = await api.get<DashboardStats>("/campaigns/dashboard-stats");
+            setStats(response);
         } catch (error) {
             console.error("Erro ao carregar estatísticas:", error);
         } finally {
