@@ -249,25 +249,46 @@ export class CampaignsProcessor {
               } catch (e) { /* Ignore parse error */ }
             }
 
-            variables.forEach((v) => {
-              if (v.value && typeof v.value === 'string') {
-                const valLower = v.value.toLowerCase().trim();
-                const cleanVal = v.value.replace(/[{{}}]/g, '').trim(); // Remove {{ }} para comparar com chaves do CSV
+            // 🚀 FEATURE: Auto-detect variables from template text if not provided
+            if (variables.length === 0 && template.bodyText) {
+              const matches = template.bodyText.match(/{{[^}]+}}/g);
+              if (matches) {
+                matches.forEach(match => {
+                  const key = match.replace(/[{{}}]/g, '').trim();
+                  variables.push({ key, value: match }); // Use placeholder as default value
+                });
+                this.logger.log(`🔍 [Campaigns] Variáveis detectadas automaticamente: ${JSON.stringify(variables)}`, 'CampaignsProcessor');
+              }
+            }
 
-                // 1. Nome do Contato
-                if (['{{nome}}', '{{name}}', '{nome}', '{name}', 'nome', 'name'].includes(valLower)) {
-                  v.value = contactName || 'Cliente';
+            variables.forEach((v) => {
+              // Limpar a chave para comparação (remover chaves se vierem do auto-detect)
+              const cleanKey = v.key.replace(/[{{}}]/g, '').trim();
+              const keyLower = cleanKey.toLowerCase();
+
+              // 1. Nome do Contato
+              if (['nome', 'name', 'cliente'].includes(keyLower)) {
+                v.value = contactName || 'Cliente';
+              }
+              // 2. Telefone/Celular
+              else if (['telefone', 'phone', 'celular', 'mobile', 'whatsapp'].includes(keyLower)) {
+                v.value = cleanPhone || '';
+              }
+              // 3. Variáveis do CSV (busca exata)
+              else if (csvVariables[cleanKey]) {
+                v.value = csvVariables[cleanKey];
+              }
+              // 4. Fallback: Busca Case-Insensitive no CSV
+              else {
+                const foundKey = Object.keys(csvVariables).find(k => k.toLowerCase() === keyLower);
+                if (foundKey) {
+                  v.value = csvVariables[foundKey];
                 }
-                // 2. Variáveis do CSV (ex: {{link}} -> link do CSV)
-                else if (csvVariables[cleanVal]) {
-                  v.value = csvVariables[cleanVal];
-                }
-                // 3. Fallback: Se for uma chave do CSV mas escrita diferente (case insensitive)
-                else {
-                  const foundKey = Object.keys(csvVariables).find(k => k.toLowerCase() === cleanVal.toLowerCase());
-                  if (foundKey) {
-                    v.value = csvVariables[foundKey];
-                  }
+                // 5. Se não encontrar, manter o placeholder ou vazio? 
+                // Se for auto-detected, v.value já é "{{key}}". Se não, é string vazia.
+                // Mas para enviar template, precisa de valor.
+                else if (v.value === `{{${v.key}}}` || !v.value) {
+                  v.value = `{{${cleanKey}}}`; // Manter placeholder visualmente se não achar valor
                 }
               }
             });
