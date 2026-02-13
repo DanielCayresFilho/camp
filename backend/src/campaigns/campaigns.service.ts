@@ -105,6 +105,9 @@ export class CampaignsService {
     const finalUseTemplate = useTemplate !== undefined ? useTemplate : (campaign.useTemplate || false);
     const finalTemplateId = templateId !== undefined ? templateId : campaign.templateId;
 
+    console.log(`🛠️ [Campaigns] Upload Logic: Input useTemplate=${useTemplate}, Campaign useTemplate=${campaign.useTemplate} => Final=${finalUseTemplate}`);
+    console.log(`🛠️ [Campaigns] Upload Logic: Input templateId=${templateId}, Campaign templateId=${campaign.templateId} => Final=${finalTemplateId}`);
+
     // Processar cada contato com delay acumulado
     let accumulatedDelayMs = 0;
 

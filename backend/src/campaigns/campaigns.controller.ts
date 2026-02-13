@@ -62,6 +62,7 @@ export class CampaignsController {
         : "NENHUM"
     );
     console.log(`📝 [Campaigns] Mensagem: ${message || "Nenhuma"}`);
+    console.log(`🛠️ [Campaigns] Params: useTemplate=${useTemplate} (${typeof useTemplate}), templateId=${templateId} (${typeof templateId})`);
 
     if (!file) {
       console.error("❌ [Campaigns] Arquivo CSV não recebido");
@@ -127,7 +128,7 @@ export class CampaignsController {
               +id,
               contacts,
               message,
-              useTemplate === "true",
+              useTemplate !== undefined ? useTemplate === "true" : undefined,
               templateId ? parseInt(templateId) : undefined
             );
             console.log("✅ [Campaigns] Upload concluído:", result);

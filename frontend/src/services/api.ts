@@ -530,10 +530,12 @@ export const campaignsService = {
 
   uploadCSV: async (id: number, file: File, message?: string, useTemplate?: boolean, templateId?: number): Promise<{ contactsAdded: number }> => {
     const formData = new FormData();
-    formData.append('file', file);
+    // Campos de texto primeiro (best practice para Multer/Busboy)
     if (message) formData.append('message', message);
     if (useTemplate !== undefined) formData.append('useTemplate', String(useTemplate));
     if (templateId !== undefined) formData.append('templateId', String(templateId));
+    // Arquivo por último
+    formData.append('file', file);
 
     const token = getAuthToken();
     const response = await fetch(`${API_BASE_URL}/campaigns/${id}/upload`, {
