@@ -175,9 +175,14 @@ export class CampaignsProcessor {
                   }
                 }
 
-                if (parsed.greeting && Array.isArray(parsed.greeting) && parsed.content) {
+                if (parsed.greeting && Array.isArray(parsed.greeting)) {
                   isGreetingFlow = true;
                   realPayload = parsed.content;
+
+                  // Se for fluxo de template, o content é um placeholder
+                  if (realPayload === '__TEMPLATE_FLOW__') {
+                    realPayload = ''; // Limpar para não enviar lixo
+                  }
 
                   // Escolher saudação aleatória
                   const randomGreeting = parsed.greeting[Math.floor(Math.random() * parsed.greeting.length)];

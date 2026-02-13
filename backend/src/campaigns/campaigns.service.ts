@@ -7,7 +7,7 @@ import { CampaignContact } from './dto/upload-campaign.dto';
 import { ContactsService } from '../contacts/contacts.service';
 import { UsersService } from '../users/users.service';
 import { PhoneValidationService } from '../phone-validation/phone-validation.service';
-
+import { ControlPanelService } from '../control-panel/control-panel.service';
 @Injectable()
 export class CampaignsService {
   constructor(
@@ -16,6 +16,7 @@ export class CampaignsService {
     private contactsService: ContactsService,
     private usersService: UsersService,
     private phoneValidationService: PhoneValidationService,
+    private controlPanelService: ControlPanelService,
   ) { }
 
   async create(createCampaignDto: CreateCampaignDto) {
@@ -140,58 +141,57 @@ export class CampaignsService {
       // 🚀 ANTI-BAN: Sempre envolver mensagem com saudações hardcoded
       // Se a mensagem for vazia (CSV simplificado) OU não for JSON de greeting, criar o payload
       if (!contactMessage || (contactMessage && !contactMessage.trim().startsWith('{'))) {
-        const HARDCODED_GREETINGS = [
-          "Fala, irmão! Já fez a fézinha da semana?",
-          "E aí, bro! Já garantiu a fézinha dessa semana?",
-          "Salve, meu mano! Já rolou a fézinha da semana?",
-          "Opa, parceiro! Já meteu a fézinha semanal?",
-          "Fala, campeão! Já fez a sua fézinha essa semana?",
-          "E aí, meu querido! Já deu aquela fézinha da semana?",
-          "Salve, brabo! Já fez a fézinha dessa semana aí?",
-          "Fala, parceiro! Já colocou a fézinha pra jogo essa semana?",
-          "E aí, irmão! Já mandou a fézinha da semana ou ainda não?",
-          "Salve, irmãozinho! Já fez a fézinha semanal?",
-          "Fala, chefe! Já garantiu a fézinha dessa semana?",
-          "E aí, meu mano! Já fez aquela fézinha marota da semana?",
-          "Salve, parceiro! Já foi de fézinha essa semana?",
-          "Fala, broder! Já fez a fézinha ou tá devendo ainda?",
-          "E aí, bruxo! Já colocou a fézinha da semana?",
-          "Salve, parceiro! Já deu o start na fézinha dessa semana?",
-          "Fala, meu nobre! Já garantiu a fézinha da semana?",
-          "E aí, irmão! Já fez a fézinha pra não passar em branco?",
-          "Salve, meu consagrado! Já fez a fézinha dessa semana?",
-          "Fala, parceiro! Já fechou a fézinha da semana aí?"
-        ];
+        // Buscar saudações configuradas no painel
+        const controlPanel = await this.controlPanelService.findOne();
+        const configuredGreetings = controlPanel.greetingMessages;
 
-        const HARDCODED_CONTENTS = [
-          "Bora forrar na nova plataforma! https://eae.bet/?r=nbjcdxwx indique seus amigos e ganhe recompensas!!",
-          "Partiu forrar na nova plataforma! https://eae.bet/?r=nbjcdxwx indique geral e ganhe recompensas!!",
-          "Bora aproveitar na nova plataforma! https://eae.bet/?r=nbjcdxwx indica teus amigos e pega recompensas!!",
-          "Fechou! Bora forrar na nova plataforma — https://eae.bet/?r=nbjcdxwx indique amigos e ganhe recompensas!!",
-          "Aí sim! Bora forrar na nova plataforma. https://eae.bet/?r=nbjcdxwx indique e ganhe recompensas!!",
-          "Bora pra cima na nova plataforma! https://eae.bet/?r=nbjcdxwx convide amigos e ganhe recompensas!!",
-          "Show! Bora forrar na plataforma nova: https://eae.bet/?r=nbjcdxwx pra indicar amigos e ganhar recompensas!!",
-          "Então vamo! Nova plataforma no ar — https://eae.bet/?r=nbjcdxwx indique seus amigos e ganhe recompensas!!",
-          "Boa! Bora forrar na nova plataforma. https://eae.bet/?r=nbjcdxwx chama os amigos e ganha recompensas!!",
-          "Perfeito! Bora forrar: nova plataforma + https://eae.bet/?r=nbjcdxwx pra indicar amigos e ganhar recompensas!!",
-          "Partiu! https://eae.bet/?r=nbjcdxwx da nova plataforma indique amigos e desbloqueie recompensas!!",
-          "Bora garantir o nosso na nova plataforma! https://eae.bet/?r=nbjcdxwx indique amigos e ganhe recompensas!!",
-          "Fechamento! Nova plataforma aqui — https://eae.bet/?r=nbjcdxwx indique seus amigos e ganhe recompensas!!",
-          "Tamo junto! Bora forrar na nova plataforma. https://eae.bet/?r=nbjcdxwx convide amigos e receba recompensas!!",
-          "Boa demais! Bora pra nova plataforma — https://eae.bet/?r=nbjcdxwx indique geral e ganhe recompensas!!",
-          "Bora de plataforma nova! https://eae.bet/?r=nbjcdxwx indique teus amigos e ganhe recompensas!!",
-          "Top! Bora forrar na nova plataforma. https://eae.bet/?r=nbjcdxwx indique amigos e acumule recompensas!!",
-          "Aí sim! Partiu forrar na plataforma nova — https://eae.bet/?r=nbjcdxwx indique amigos e ganhe recompensas!!",
-          "Excelente! https://eae.bet/?r=nbjcdxwx da nova plataforma: indique seus amigos e ganhe recompensas!!",
-          "Demorou! Bora forrar na nova plataforma. https://eae.bet/?r=nbjcdxwx chama os amigos e garante recompensas!!"
-        ];
+        // Se houver configurações, usar. Se não, fallback para hardcoded (segurança)
+        const GREETINGS = (configuredGreetings && configuredGreetings.length > 0)
+          ? configuredGreetings
+          : [
+            "Olá, tudo bem?",
+            "Oi, tudo certo?"
+          ];
 
-        // Escolher mensagem de conteúdo aleatória
-        const randomContent = HARDCODED_CONTENTS[Math.floor(Math.random() * HARDCODED_CONTENTS.length)];
+        // Lógica de Conteúdo:
+        // 1. Se campaign.useTemplate = true, o conteúdo real será o template (enviado pelo webhook NA RESPOSTA).
+        //    Nesse caso, usamos um placeholder aqui para satisfazer a validação do JSON.
+        // 2. Se campaign.useTemplate = false, escolhemos uma mensagem aleatória de HARDCODED_CONTENTS (ou mantemos a mensagem original se não for vazio)
+
+        let content = "";
+
+        if (finalUseTemplate) {
+          content = "__TEMPLATE_FLOW__"; // Placeholder especial
+        } else {
+          const HARDCODED_CONTENTS = [
+            "Bora forrar na nova plataforma! https://eae.bet/?r=nbjcdxwx indique seus amigos e ganhe recompensas!!",
+            "Partiu forrar na nova plataforma! https://eae.bet/?r=nbjcdxwx indique geral e ganhe recompensas!!",
+            "Bora aproveitar na nova plataforma! https://eae.bet/?r=nbjcdxwx indica teus amigos e pega recompensas!!",
+            "Fechou! Bora forrar na nova plataforma — https://eae.bet/?r=nbjcdxwx indique amigos e ganhe recompensas!!",
+            "Aí sim! Bora forrar na nova plataforma. https://eae.bet/?r=nbjcdxwx indique e ganhe recompensas!!",
+            "Bora pra cima na nova plataforma! https://eae.bet/?r=nbjcdxwx convide amigos e ganhe recompensas!!",
+            "Show! Bora forrar na plataforma nova: https://eae.bet/?r=nbjcdxwx pra indicar amigos e ganhar recompensas!!",
+            "Então vamo! Nova plataforma no ar — https://eae.bet/?r=nbjcdxwx indique seus amigos e ganhe recompensas!!",
+            "Boa! Bora forrar na nova plataforma. https://eae.bet/?r=nbjcdxwx chama os amigos e ganha recompensas!!",
+            "Perfeito! Bora forrar: nova plataforma + https://eae.bet/?r=nbjcdxwx pra indicar amigos e ganhar recompensas!!",
+            "Partiu! https://eae.bet/?r=nbjcdxwx da nova plataforma indique amigos e desbloqueie recompensas!!",
+            "Bora garantir o nosso na nova plataforma! https://eae.bet/?r=nbjcdxwx indique amigos e ganhe recompensas!!",
+            "Fechamento! Nova plataforma aqui — https://eae.bet/?r=nbjcdxwx indique seus amigos e ganhe recompensas!!",
+            "Tamo junto! Bora forrar na nova plataforma. https://eae.bet/?r=nbjcdxwx convide amigos e receba recompensas!!",
+            "Boa demais! Bora pra nova plataforma — https://eae.bet/?r=nbjcdxwx indique geral e ganhe recompensas!!",
+            "Bora de plataforma nova! https://eae.bet/?r=nbjcdxwx indique teus amigos e ganhe recompensas!!",
+            "Top! Bora forrar na nova plataforma. https://eae.bet/?r=nbjcdxwx indique amigos e acumule recompensas!!",
+            "Aí sim! Partiu forrar na plataforma nova — https://eae.bet/?r=nbjcdxwx indique amigos e ganhe recompensas!!",
+            "Excelente! https://eae.bet/?r=nbjcdxwx da nova plataforma: indique seus amigos e ganhe recompensas!!",
+            "Demorou! Bora forrar na nova plataforma. https://eae.bet/?r=nbjcdxwx chama os amigos e garante recompensas!!"
+          ];
+          // Escolher mensagem de conteúdo aleatória
+          content = HARDCODED_CONTENTS[Math.floor(Math.random() * HARDCODED_CONTENTS.length)];
+        }
 
         contactMessage = JSON.stringify({
-          greeting: HARDCODED_GREETINGS,
-          content: randomContent
+          greeting: GREETINGS,
+          content: content
         });
       }
 
@@ -528,5 +528,32 @@ export class CampaignsService {
       .slice(0, 5); // Retornar apenas as 5 próximas
 
     return sortedMessages;
+  }
+
+  async getDashboardStats() {
+    // 1. Total de disparos realizados: Status response=true ou dispatchedAt != null
+    const totalSent = await this.prisma.campaign.count({
+      where: {
+        dispatchedAt: { not: null },
+      },
+    });
+
+    // 2. Fila (não despachados): dispatchedAt = null e messageId começa com SCHEDULED ou é null (ainda não processado)
+    const queueCount = await this.prisma.campaign.count({
+      where: {
+        dispatchedAt: null,
+      },
+    });
+
+    // 3. Custo (R$ 0,30 por mensagem)
+    const costPerMessage = 0.30;
+    const totalCost = totalSent * costPerMessage;
+
+    return {
+      totalSent,
+      queueCount,
+      totalCost,
+      costPerMessage
+    };
   }
 }

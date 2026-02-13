@@ -43,11 +43,32 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   {
+    title: "Dashboard",
+    url: "/dashboard-campanhas",
+    icon: BarChart3,
+    color: "text-success",
+    roles: ["admin", "supervisor"],
+  },
+  {
     title: "Campanhas",
     url: "/campanhas",
     icon: Megaphone,
     color: "text-primary",
     roles: ["supervisor", "admin", "digital"],
+  },
+  {
+    title: "Templates",
+    url: "/templates",
+    icon: FileText,
+    color: "text-info",
+    roles: ["admin", "supervisor"],
+  },
+  {
+    title: "Config. Saudações",
+    url: "/config-saudacoes",
+    icon: Sliders,
+    color: "text-warning",
+    roles: ["admin"],
   },
   {
     title: "Segmentos",

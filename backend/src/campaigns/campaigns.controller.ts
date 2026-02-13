@@ -134,6 +134,12 @@ export class CampaignsController {
     return this.campaignsService.getCampaignSummaries({ search });
   }
 
+  @Get('dashboard-stats')
+  @Roles(Role.admin, Role.supervisor)
+  getDashboardStats() {
+    return this.campaignsService.getDashboardStats();
+  }
+
   @Get()
   @Roles(Role.admin, Role.supervisor, Role.digital)
   findAll() {

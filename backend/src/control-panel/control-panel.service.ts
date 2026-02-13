@@ -8,12 +8,12 @@ export class ControlPanelService {
   constructor(
     private prisma: PrismaService,
     private cacheService: CacheService,
-  ) {}
+  ) { }
 
   // Buscar configurações (global ou por segmento) - COM CACHE
   async findOne(segmentId?: number) {
     const cacheKey = `control-panel:${segmentId ?? 'global'}`;
-    
+
     // Cache: 5 minutos (configurações mudam raramente)
     return await this.cacheService.getOrSet(
       cacheKey,
@@ -44,6 +44,7 @@ export class ControlPanelService {
             autoMessageText: null,
             autoMessageMaxAttempts: 1,
             sharedLineMode: false, // Modo compartilhado desativado por padrão
+            greetingMessages: [],
           };
         }
 
@@ -51,6 +52,7 @@ export class ControlPanelService {
           ...config,
           blockPhrases: config.blockPhrases ? JSON.parse(config.blockPhrases) : [],
           activeEvolutions: (config as any).activeEvolutions ? JSON.parse((config as any).activeEvolutions) : null,
+          greetingMessages: (config as any).greetingMessages ? JSON.parse((config as any).greetingMessages) : [],
         };
       },
       5 * 60 * 1000, // 5 minutos
@@ -76,16 +78,18 @@ export class ControlPanelService {
       repescagemMaxMessages: dto.repescagemMaxMessages,
       repescagemCooldownHours: dto.repescagemCooldownHours,
       repescagemMaxAttempts: dto.repescagemMaxAttempts,
-      activeEvolutions: dto.activeEvolutions !== undefined 
-        ? (dto.activeEvolutions === null || dto.activeEvolutions.length === 0 
-            ? null 
-            : JSON.stringify(dto.activeEvolutions))
+      activeEvolutions: dto.activeEvolutions !== undefined
+        ? (dto.activeEvolutions === null || dto.activeEvolutions.length === 0
+          ? null
+          : JSON.stringify(dto.activeEvolutions))
         : undefined,
       autoMessageEnabled: dto.autoMessageEnabled,
       autoMessageHours: dto.autoMessageHours,
       autoMessageText: dto.autoMessageText,
       autoMessageMaxAttempts: dto.autoMessageMaxAttempts,
+      autoMessageMaxAttempts: dto.autoMessageMaxAttempts,
       sharedLineMode: dto.sharedLineMode,
+      greetingMessages: dto.greetingMessages ? JSON.stringify(dto.greetingMessages) : undefined,
     };
 
     // Remover campos undefined
@@ -100,15 +104,16 @@ export class ControlPanelService {
         where: { id: existing.id },
         data,
       });
-      
+
       // Invalidar cache após atualização
       const cacheKey = `control-panel:${dto.segmentId ?? 'global'}`;
       await this.cacheService.del(cacheKey);
-      
+
       return {
         ...updated,
         blockPhrases: updated.blockPhrases ? JSON.parse(updated.blockPhrases) : [],
         activeEvolutions: (updated as any).activeEvolutions ? JSON.parse((updated as any).activeEvolutions) : null,
+        greetingMessages: (updated as any).greetingMessages ? JSON.parse((updated as any).greetingMessages) : [],
       };
     }
 
@@ -119,15 +124,16 @@ export class ControlPanelService {
         activeEvolutions: data.activeEvolutions ?? null,
       } as any, // Temporário até migration ser aplicada
     });
-    
+
     // Invalidar cache após criação
     const cacheKey = `control-panel:${dto.segmentId ?? 'global'}`;
     await this.cacheService.del(cacheKey);
-    
+
     return {
       ...created,
       blockPhrases: created.blockPhrases ? JSON.parse(created.blockPhrases) : [],
       activeEvolutions: (created as any).activeEvolutions ? JSON.parse((created as any).activeEvolutions) : null,
+      greetingMessages: (created as any).greetingMessages ? JSON.parse((created as any).greetingMessages) : [],
     };
   }
 
@@ -160,12 +166,12 @@ export class ControlPanelService {
   // Verificar se uma mensagem contém uma frase de bloqueio
   async checkBlockPhrases(message: string, segmentId?: number): Promise<boolean> {
     const config = await this.findOne(segmentId);
-    
+
     // Se frases de bloqueio estiverem desativadas, retornar false
     if (!config.blockPhrasesEnabled) {
       return false;
     }
-    
+
     const phrases = config.blockPhrases || [];
     const messageLower = message.toLowerCase();
     return phrases.some((phrase: string) => messageLower.includes(phrase.toLowerCase()));
@@ -398,12 +404,12 @@ export class ControlPanelService {
   // Filtrar linhas por evolutions ativas
   async filterLinesByActiveEvolutions(lines: any[], segmentId?: number): Promise<any[]> {
     const activeEvolutions = await this.getActiveEvolutions(segmentId);
-    
+
     // Se não há restrição (null), retornar todas as linhas
     if (!activeEvolutions || activeEvolutions.length === 0) {
       return lines;
     }
-    
+
     // Filtrar apenas linhas das evolutions ativas
     return lines.filter(line => activeEvolutions.includes(line.evolutionName));
   }
@@ -464,128 +470,142 @@ export class ControlPanelService {
       for (const [segment, segmentOperators] of operatorsBySegment.entries()) {
         // Buscar linhas disponíveis para este segmento
         let availableLines: any[] = [];
-        
+
         if (segment !== null && segment !== undefined) {
           // Buscar linhas do segmento específico
           availableLines = await tx.linesStock.findMany({
-          where: {
-            lineStatus: 'active',
-            segment: segment,
-          },
-          orderBy: {
-            phone: 'asc',
-          },
-        });
-        console.log(`🔍 [Atribuição em Massa] Segmento ${segment}: encontradas ${availableLines.length} linhas do próprio segmento`);
-      }
+            where: {
+              lineStatus: 'active',
+              segment: segment,
+            },
+            orderBy: {
+              phone: 'asc',
+            },
+          });
+          console.log(`🔍 [Atribuição em Massa] Segmento ${segment}: encontradas ${availableLines.length} linhas do próprio segmento`);
+        }
 
-      // Se não encontrou linhas do segmento, buscar linhas padrão (segmento null ou "Padrão")
-      if (availableLines.length === 0) {
-        // Primeiro tentar linhas com segmento null
-        const nullSegmentLines = await tx.linesStock.findMany({
-          where: {
-            lineStatus: 'active',
-            segment: null,
-          },
-          orderBy: {
-            phone: 'asc',
-          },
-        });
-        
-        console.log(`🔍 [Atribuição em Massa] Segmento ${segment || 'null'}: encontradas ${nullSegmentLines.length} linhas com segmento null`);
-        
-        if (nullSegmentLines.length > 0) {
-          availableLines = nullSegmentLines;
-        } else {
-          // Se não encontrou linhas com segmento null, buscar segmento "Padrão"
-          const defaultSegment = await tx.segment.findUnique({
-            where: { name: 'Padrão' },
+        // Se não encontrou linhas do segmento, buscar linhas padrão (segmento null ou "Padrão")
+        if (availableLines.length === 0) {
+          // Primeiro tentar linhas com segmento null
+          const nullSegmentLines = await tx.linesStock.findMany({
+            where: {
+              lineStatus: 'active',
+              segment: null,
+            },
+            orderBy: {
+              phone: 'asc',
+            },
           });
 
-          if (defaultSegment) {
-            availableLines = await tx.linesStock.findMany({
-              where: {
-                lineStatus: 'active',
-                segment: defaultSegment.id,
-              },
-              orderBy: {
-                phone: 'asc',
-              },
-            });
-            console.log(`🔍 [Atribuição em Massa] Segmento ${segment || 'null'}: encontradas ${availableLines.length} linhas do segmento "Padrão"`);
+          console.log(`🔍 [Atribuição em Massa] Segmento ${segment || 'null'}: encontradas ${nullSegmentLines.length} linhas com segmento null`);
+
+          if (nullSegmentLines.length > 0) {
+            availableLines = nullSegmentLines;
           } else {
-            console.warn(`⚠️ [Atribuição em Massa] Segmento "Padrão" não encontrado no banco`);
+            // Se não encontrou linhas com segmento null, buscar segmento "Padrão"
+            const defaultSegment = await tx.segment.findUnique({
+              where: { name: 'Padrão' },
+            });
+
+            if (defaultSegment) {
+              availableLines = await tx.linesStock.findMany({
+                where: {
+                  lineStatus: 'active',
+                  segment: defaultSegment.id,
+                },
+                orderBy: {
+                  phone: 'asc',
+                },
+              });
+              console.log(`🔍 [Atribuição em Massa] Segmento ${segment || 'null'}: encontradas ${availableLines.length} linhas do segmento "Padrão"`);
+            } else {
+              console.warn(`⚠️ [Atribuição em Massa] Segmento "Padrão" não encontrado no banco`);
+            }
           }
         }
-      }
 
-      // IMPORTANTE: Filtrar linhas por evolutions ativas ANTES de processar
-      availableLines = await this.filterLinesByActiveEvolutions(availableLines, segment || undefined);
-      console.log(`🔍 [Atribuição em Massa] Após filtrar por evolutions ativas: ${availableLines.length} linhas disponíveis para segmento ${segment || 'null'}`);
+        // IMPORTANTE: Filtrar linhas por evolutions ativas ANTES de processar
+        availableLines = await this.filterLinesByActiveEvolutions(availableLines, segment || undefined);
+        console.log(`🔍 [Atribuição em Massa] Após filtrar por evolutions ativas: ${availableLines.length} linhas disponíveis para segmento ${segment || 'null'}`);
 
-      console.log(`📊 [Atribuição em Massa] Segmento ${segment || 'null'}: ${segmentOperators.length} operadores, ${availableLines.length} linhas disponíveis`);
+        console.log(`📊 [Atribuição em Massa] Segmento ${segment || 'null'}: ${segmentOperators.length} operadores, ${availableLines.length} linhas disponíveis`);
 
-      if (availableLines.length === 0) {
-        // Nenhuma linha disponível para este segmento
-        console.warn(`⚠️ [Atribuição em Massa] Nenhuma linha disponível para segmento ${segment || 'null'}`);
+        if (availableLines.length === 0) {
+          // Nenhuma linha disponível para este segmento
+          console.warn(`⚠️ [Atribuição em Massa] Nenhuma linha disponível para segmento ${segment || 'null'}`);
+          for (const operator of segmentOperators) {
+            results.skipped++;
+            results.details.push({
+              operatorName: operator.name,
+              operatorId: operator.id,
+              segment: operator.segment,
+              linePhone: null,
+              lineId: null,
+              status: 'skipped',
+              reason: 'Nenhuma linha disponível para o segmento',
+            });
+          }
+          continue;
+        }
+
+        // Distribuir linhas aos operadores (regra 2x1)
+        let lineIndex = 0;
         for (const operator of segmentOperators) {
-          results.skipped++;
-          results.details.push({
-            operatorName: operator.name,
-            operatorId: operator.id,
-            segment: operator.segment,
-            linePhone: null,
-            lineId: null,
-            status: 'skipped',
-            reason: 'Nenhuma linha disponível para o segmento',
-          });
-        }
-        continue;
-      }
+          // Verificar se operador já tem linha
+          let currentLineId = operator.line;
+          if (!currentLineId) {
+            const lineOperator = await (tx as any).lineOperator.findFirst({
+              where: { userId: operator.id },
+            });
+            currentLineId = lineOperator?.lineId || null;
+          }
 
-      // Distribuir linhas aos operadores (regra 2x1)
-      let lineIndex = 0;
-      for (const operator of segmentOperators) {
-        // Verificar se operador já tem linha
-        let currentLineId = operator.line;
-        if (!currentLineId) {
-          const lineOperator = await (tx as any).lineOperator.findFirst({
-            where: { userId: operator.id },
-          });
-          currentLineId = lineOperator?.lineId || null;
-        }
+          // Se operador tem linha, verificar se é de uma evolution ativa
+          if (currentLineId) {
+            const currentLine = await tx.linesStock.findUnique({
+              where: { id: currentLineId },
+            });
 
-        // Se operador tem linha, verificar se é de uma evolution ativa
-        if (currentLineId) {
-          const currentLine = await tx.linesStock.findUnique({
-            where: { id: currentLineId },
-          });
-          
-          if (currentLine) {
-            // Verificar se a linha atual é de uma evolution ativa
-            const activeEvolutions = await this.getActiveEvolutions(operator.segment || undefined);
-            
-            // Se há evolutions ativas configuradas e a linha atual não está na lista, desvincular
-            if (activeEvolutions && activeEvolutions.length > 0) {
-              if (!activeEvolutions.includes(currentLine.evolutionName)) {
-                // Linha atual não é de uma evolution ativa, desvincular
-                console.log(`🔄 [Atribuição em Massa] Desvinculando operador ${operator.name} da linha ${currentLine.phone} (evolution: ${currentLine.evolutionName} não está ativa)`);
-                
-                // Remover vínculo
-                await (tx as any).lineOperator.deleteMany({
-                  where: { userId: operator.id, lineId: currentLineId },
-                });
-                
-                // Limpar campo legacy
-                await tx.user.update({
-                  where: { id: operator.id },
-                  data: { line: null },
-                });
-                
-                // Continuar para atribuir nova linha
-                currentLineId = null;
+            if (currentLine) {
+              // Verificar se a linha atual é de uma evolution ativa
+              const activeEvolutions = await this.getActiveEvolutions(operator.segment || undefined);
+
+              // Se há evolutions ativas configuradas e a linha atual não está na lista, desvincular
+              if (activeEvolutions && activeEvolutions.length > 0) {
+                if (!activeEvolutions.includes(currentLine.evolutionName)) {
+                  // Linha atual não é de uma evolution ativa, desvincular
+                  console.log(`🔄 [Atribuição em Massa] Desvinculando operador ${operator.name} da linha ${currentLine.phone} (evolution: ${currentLine.evolutionName} não está ativa)`);
+
+                  // Remover vínculo
+                  await (tx as any).lineOperator.deleteMany({
+                    where: { userId: operator.id, lineId: currentLineId },
+                  });
+
+                  // Limpar campo legacy
+                  await tx.user.update({
+                    where: { id: operator.id },
+                    data: { line: null },
+                  });
+
+                  // Continuar para atribuir nova linha
+                  currentLineId = null;
+                } else {
+                  // Linha atual é de uma evolution ativa, manter
+                  results.skipped++;
+                  results.details.push({
+                    operatorName: operator.name,
+                    operatorId: operator.id,
+                    segment: operator.segment,
+                    linePhone: currentLine.phone,
+                    lineId: currentLineId,
+                    status: 'already_has_line',
+                    reason: 'Operador já possui linha atribuída de evolution ativa',
+                  });
+                  continue;
+                }
               } else {
-                // Linha atual é de uma evolution ativa, manter
+                // Sem restrição de evolutions, manter linha atual
                 results.skipped++;
                 results.details.push({
                   operatorName: operator.name,
@@ -594,164 +614,150 @@ export class ControlPanelService {
                   linePhone: currentLine.phone,
                   lineId: currentLineId,
                   status: 'already_has_line',
-                  reason: 'Operador já possui linha atribuída de evolution ativa',
+                  reason: 'Operador já possui linha atribuída',
                 });
                 continue;
               }
-            } else {
-              // Sem restrição de evolutions, manter linha atual
-              results.skipped++;
-              results.details.push({
-                operatorName: operator.name,
-                operatorId: operator.id,
-                segment: operator.segment,
-                linePhone: currentLine.phone,
-                lineId: currentLineId,
-                status: 'already_has_line',
-                reason: 'Operador já possui linha atribuída',
+            }
+          }
+
+          // LÓGICA SIMPLIFICADA: 
+          // 1. Operador tem linha? Não -> atribuir primeira linha disponível
+          // 2. Atualizar segmento da linha para o segmento do operador
+          // 3. Próximo operador
+          let assignedLine = null;
+
+          for (const candidateLine of availableLines) {
+            // Verificar quantos operadores já estão vinculados
+            const operatorsCount = await (tx as any).lineOperator.count({
+              where: { lineId: candidateLine.id },
+            });
+
+            // Se linha já tem 2 operadores, pular
+            if (operatorsCount >= 2) {
+              continue;
+            }
+
+            // Verificar se operador já está vinculado a esta linha
+            const existing = await (tx as any).lineOperator.findFirst({
+              where: {
+                lineId: candidateLine.id,
+                userId: operator.id,
+              },
+            }).catch(() => null);
+
+            if (existing) {
+              continue; // Operador já está vinculado a esta linha
+            }
+
+            // Verificar se a linha já tem operadores de outro segmento
+            const existingOperators = await (tx as any).lineOperator.findMany({
+              where: { lineId: candidateLine.id },
+              include: { user: true },
+            });
+
+            // Se a linha já tem operadores, verificar se são do mesmo segmento
+            if (existingOperators.length > 0) {
+              const allSameSegment = existingOperators.every((lo: any) => {
+                // Se ambos são null, considerar mesmo segmento
+                if (lo.user.segment === null && operator.segment === null) return true;
+                // Comparar segmentos
+                return lo.user.segment === operator.segment;
               });
-              continue;
+
+              if (!allSameSegment) {
+                // Linha já tem operador de outro segmento, pular esta linha
+                continue;
+              }
             }
-          }
-        }
 
-        // LÓGICA SIMPLIFICADA: 
-        // 1. Operador tem linha? Não -> atribuir primeira linha disponível
-        // 2. Atualizar segmento da linha para o segmento do operador
-        // 3. Próximo operador
-        let assignedLine = null;
-
-        for (const candidateLine of availableLines) {
-          // Verificar quantos operadores já estão vinculados
-          const operatorsCount = await (tx as any).lineOperator.count({
-            where: { lineId: candidateLine.id },
-          });
-
-          // Se linha já tem 2 operadores, pular
-          if (operatorsCount >= 2) {
-            continue;
+            // Linha disponível! Atribuir e sair do loop
+            assignedLine = candidateLine;
+            break;
           }
 
-          // Verificar se operador já está vinculado a esta linha
-          const existing = await (tx as any).lineOperator.findFirst({
-            where: {
-              lineId: candidateLine.id,
-              userId: operator.id,
-            },
-          }).catch(() => null);
+          if (assignedLine) {
+            console.log(`✅ [Atribuição em Massa] Atribuindo linha ${assignedLine.phone} (ID: ${assignedLine.id}, Segmento: ${assignedLine.segment}) ao operador ${operator.name} (ID: ${operator.id}, Segmento: ${operator.segment})`);
 
-          if (existing) {
-            continue; // Operador já está vinculado a esta linha
-          }
-
-          // Verificar se a linha já tem operadores de outro segmento
-          const existingOperators = await (tx as any).lineOperator.findMany({
-            where: { lineId: candidateLine.id },
-            include: { user: true },
-          });
-
-          // Se a linha já tem operadores, verificar se são do mesmo segmento
-          if (existingOperators.length > 0) {
-            const allSameSegment = existingOperators.every((lo: any) => {
-              // Se ambos são null, considerar mesmo segmento
-              if (lo.user.segment === null && operator.segment === null) return true;
-              // Comparar segmentos
-              return lo.user.segment === operator.segment;
+            // Vincular operador à linha (usando tx dentro da transaction)
+            await (tx as any).lineOperator.create({
+              data: {
+                lineId: assignedLine.id,
+                userId: operator.id,
+              },
             });
-            
-            if (!allSameSegment) {
-              // Linha já tem operador de outro segmento, pular esta linha
-              continue;
+
+            // Atualizar campos legacy
+            await tx.user.update({
+              where: { id: operator.id },
+              data: { line: assignedLine.id },
+            });
+
+            // Se for o primeiro operador da linha, atualizar linkedTo
+            const operatorsCount = await (tx as any).lineOperator.count({
+              where: { lineId: assignedLine.id },
+            });
+            if (operatorsCount === 1) {
+              await tx.linesStock.update({
+                where: { id: assignedLine.id },
+                data: { linkedTo: operator.id },
+              });
             }
-          }
 
-          // Linha disponível! Atribuir e sair do loop
-          assignedLine = candidateLine;
-          break;
-        }
+            // SEMPRE atualizar segmento da linha para o segmento do operador
+            // Se operador tem segmento, atualizar linha para esse segmento
+            if (operator.segment !== null && assignedLine.segment !== operator.segment) {
+              await tx.linesStock.update({
+                where: { id: assignedLine.id },
+                data: { segment: operator.segment },
+              });
+              console.log(`🔄 [Atribuição em Massa] Linha ${assignedLine.phone} atualizada de segmento ${assignedLine.segment || 'null'} para ${operator.segment}`);
+            } else if (operator.segment === null && assignedLine.segment !== null) {
+              // Se operador não tem segmento mas linha tem, manter segmento da linha
+              console.log(`ℹ️ [Atribuição em Massa] Linha ${assignedLine.phone} mantém segmento ${assignedLine.segment} (operador sem segmento)`);
+            }
 
-        if (assignedLine) {
-          console.log(`✅ [Atribuição em Massa] Atribuindo linha ${assignedLine.phone} (ID: ${assignedLine.id}, Segmento: ${assignedLine.segment}) ao operador ${operator.name} (ID: ${operator.id}, Segmento: ${operator.segment})`);
-          
-          // Vincular operador à linha (usando tx dentro da transaction)
-          await (tx as any).lineOperator.create({
-            data: {
+            results.assigned++;
+            results.details.push({
+              operatorName: operator.name,
+              operatorId: operator.id,
+              segment: operator.segment,
+              linePhone: assignedLine.phone,
               lineId: assignedLine.id,
-              userId: operator.id,
-            },
-          });
-
-          // Atualizar campos legacy
-          await tx.user.update({
-            where: { id: operator.id },
-            data: { line: assignedLine.id },
-          });
-
-          // Se for o primeiro operador da linha, atualizar linkedTo
-          const operatorsCount = await (tx as any).lineOperator.count({
-            where: { lineId: assignedLine.id },
-          });
-          if (operatorsCount === 1) {
-            await tx.linesStock.update({
-              where: { id: assignedLine.id },
-              data: { linkedTo: operator.id },
+              status: 'assigned',
             });
-          }
-
-          // SEMPRE atualizar segmento da linha para o segmento do operador
-          // Se operador tem segmento, atualizar linha para esse segmento
-          if (operator.segment !== null && assignedLine.segment !== operator.segment) {
-            await tx.linesStock.update({
-              where: { id: assignedLine.id },
-              data: { segment: operator.segment },
-            });
-            console.log(`🔄 [Atribuição em Massa] Linha ${assignedLine.phone} atualizada de segmento ${assignedLine.segment || 'null'} para ${operator.segment}`);
-          } else if (operator.segment === null && assignedLine.segment !== null) {
-            // Se operador não tem segmento mas linha tem, manter segmento da linha
-            console.log(`ℹ️ [Atribuição em Massa] Linha ${assignedLine.phone} mantém segmento ${assignedLine.segment} (operador sem segmento)`);
-          }
-
-          results.assigned++;
-          results.details.push({
-            operatorName: operator.name,
-            operatorId: operator.id,
-            segment: operator.segment,
-            linePhone: assignedLine.phone,
-            lineId: assignedLine.id,
-            status: 'assigned',
-          });
-        } else {
-          // Verificar quantas linhas realmente têm espaço (usando tx)
-          let linesWithSpace = 0;
-          for (const line of availableLines) {
-            const count = await (tx as any).lineOperator.count({
-              where: { lineId: line.id },
-            });
-            if (count < 2) {
-              linesWithSpace++;
+          } else {
+            // Verificar quantas linhas realmente têm espaço (usando tx)
+            let linesWithSpace = 0;
+            for (const line of availableLines) {
+              const count = await (tx as any).lineOperator.count({
+                where: { lineId: line.id },
+              });
+              if (count < 2) {
+                linesWithSpace++;
+              }
             }
+
+            const reason = availableLines.length === 0
+              ? 'Nenhuma linha disponível para o segmento'
+              : linesWithSpace === 0
+                ? 'Todas as linhas disponíveis já têm 2 operadores'
+                : 'Nenhuma linha compatível encontrada (verificar segmentos)';
+
+            console.warn(`⚠️ [Atribuição em Massa] Operador ${operator.name} (ID: ${operator.id}, Segmento: ${operator.segment}) não recebeu linha. ${availableLines.length} linhas disponíveis, ${linesWithSpace} com espaço. Motivo: ${reason}`);
+
+            results.skipped++;
+            results.details.push({
+              operatorName: operator.name,
+              operatorId: operator.id,
+              segment: operator.segment,
+              linePhone: null,
+              lineId: null,
+              status: 'skipped',
+              reason,
+            });
           }
-          
-          const reason = availableLines.length === 0 
-            ? 'Nenhuma linha disponível para o segmento'
-            : linesWithSpace === 0
-            ? 'Todas as linhas disponíveis já têm 2 operadores'
-            : 'Nenhuma linha compatível encontrada (verificar segmentos)';
-          
-          console.warn(`⚠️ [Atribuição em Massa] Operador ${operator.name} (ID: ${operator.id}, Segmento: ${operator.segment}) não recebeu linha. ${availableLines.length} linhas disponíveis, ${linesWithSpace} com espaço. Motivo: ${reason}`);
-          
-          results.skipped++;
-          results.details.push({
-            operatorName: operator.name,
-            operatorId: operator.id,
-            segment: operator.segment,
-            linePhone: null,
-            lineId: null,
-            status: 'skipped',
-            reason,
-          });
         }
-      }
       }
 
       console.log(`📊 [Atribuição em Massa] Resultado final: ${results.assigned} atribuídas, ${results.skipped} puladas`);
@@ -785,10 +791,10 @@ export class ControlPanelService {
       // Primeiro, contar quantos vínculos existem
       const totalLinksBefore = await (this.prisma as any).lineOperator.count({});
       console.log(`🔍 [Desatribuição em Massa] Total de vínculos antes: ${totalLinksBefore}`);
-      
+
       const deletedCount = await (this.prisma as any).lineOperator.deleteMany({});
       console.log(`✅ [Desatribuição em Massa] ${deletedCount.count} vínculos de operadores removidos`);
-      
+
       // Verificar se realmente removeu tudo
       const totalLinksAfter = await (this.prisma as any).lineOperator.count({});
       if (totalLinksAfter > 0) {
@@ -807,7 +813,7 @@ export class ControlPanelService {
         },
       });
       console.log(`✅ [Desatribuição em Massa] Campo legacy "line" limpo de ${updatedUsers.count} operadores`);
-      
+
       // Verificar se realmente limpou tudo
       const operatorsWithLine = await this.prisma.user.count({
         where: {

@@ -389,6 +389,9 @@ model ControlPanel {
   // Modo de linha compartilhada - permite que todos os usuários compartilhem a mesma linha
   sharedLineMode           Boolean @default(false) // Se true, mesma linha pode ser vinculada a todos os usuários e nunca desvincula
 
+  // Saudações configuráveis para campanhas
+  greetingMessages         String? @db.Text // JSON array de strings: ["Oi", "Olá"]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

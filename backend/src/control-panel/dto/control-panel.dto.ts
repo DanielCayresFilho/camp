@@ -149,6 +149,12 @@ export class UpdateControlPanelDto {
   @IsBoolean()
   @IsOptional()
   sharedLineMode?: boolean;
+
+  // Saudações configuráveis
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  greetingMessages?: string[]; // Array de strings: ["Oi", "Olá"]
 }
 
 export class AddBlockPhraseDto {

@@ -15,6 +15,7 @@ import { PhoneValidationModule } from '../phone-validation/phone-validation.modu
 import { HumanizationModule } from '../humanization/humanization.module';
 import { MessageSendingModule } from '../message-sending/message-sending.module';
 import { SpintaxModule } from '../spintax/spintax.module';
+import { ControlPanelModule } from '../control-panel/control-panel.module';
 
 @Module({
   imports: [
@@ -32,6 +33,13 @@ import { SpintaxModule } from '../spintax/spintax.module';
     HumanizationModule,
     MessageSendingModule,
     SpintaxModule,
+    LineReputationModule,
+    LoggerModule,
+    PhoneValidationModule,
+    HumanizationModule,
+    MessageSendingModule,
+    SpintaxModule,
+    ControlPanelModule,
   ],
   controllers: [CampaignsController],
   providers: [CampaignsService, CampaignsProcessor, PrismaService],
