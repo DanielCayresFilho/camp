@@ -170,6 +170,9 @@ export class CampaignsController {
             // Ignorar chaves vazias ou reservadas
             if (cleanKey && !reservedKeys.includes(cleanKey.toLowerCase())) {
               variables[cleanKey] = row[key];
+              if (contacts.length === 0) console.log(`🔍 [Controller] Key '${cleanKey}' added to variables.`);
+            } else if (contacts.length === 0) {
+              console.log(`🔍 [Controller] Key '${cleanKey}' skipped (Reserved or Empty).`);
             }
           });
 

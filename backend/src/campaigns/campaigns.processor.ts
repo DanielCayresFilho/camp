@@ -157,6 +157,8 @@ export class CampaignsProcessor {
           await this.humanizationService.sleep(delayMs);
           // ===============================================
 
+          this.logger.log(`🔍 [CampaignsProcessor] RAW MESSAGE RECEIVED: ${message}`, 'CampaignsProcessor');
+
           // 🚀 GLOBAL: Extrair variáveis do CSV antes de qualquer processamento (Greeting pode sobrescrever message)
           let globalCsvVariables: Record<string, string> = {};
           try {
