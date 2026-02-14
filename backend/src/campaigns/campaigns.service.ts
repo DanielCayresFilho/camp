@@ -229,23 +229,31 @@ export class CampaignsService {
         },
       });
 
+      // Construir payload da fila explicitamente para debug
+      const queuePayload = {
+        campaignId: campaignRecord.id, // ID
+        contactName: contact.name,
+        contactPhone: normalizedPhone,
+        contactSegment: campaign.contactSegment,
+        lineId: lineId,
+        // 🚀 FIX: Garantir que message seja JSON se for template
+        message: (finalUseTemplate && (!contactMessage || !contactMessage.trim().startsWith('{')))
+          ? JSON.stringify({ content: "__TEMPLATE_FLOW__", csvVariables: contact.variables || {} })
+          : contactMessage,
+        useTemplate: finalUseTemplate,
+        templateId: finalTemplateId,
+        templateVariables: campaign.templateVariables,
+      };
+
+      if (i === 0) {
+        console.log(`🛠️ [CampaignsService] DEBUG FINAL: UseTemplate=${finalUseTemplate}, ContactMsgType=${typeof contactMessage}`);
+        console.log(`🛠️ [CampaignsService] Queue Payload Sample:`, JSON.stringify(queuePayload, null, 2));
+      }
+
       // Adicionar à fila com delay acumulado
       await this.campaignsQueue.add(
         'send-campaign-message',
-        {
-          campaignId: campaignRecord.id,
-          contactName: contact.name,
-          contactPhone: normalizedPhone,
-          contactSegment: campaign.contactSegment,
-          lineId: lineId,
-          // 🚀 FIX: Garantir que message seja JSON se for template
-          message: (finalUseTemplate && (!contactMessage || !contactMessage.trim().startsWith('{')))
-            ? JSON.stringify({ content: "__TEMPLATE_FLOW__", csvVariables: contact.variables || {} })
-            : contactMessage,
-          useTemplate: finalUseTemplate,
-          templateId: finalTemplateId,
-          templateVariables: campaign.templateVariables,
-        },
+        queuePayload,
         {
           delay: accumulatedDelayMs,
           attempts: 3,
