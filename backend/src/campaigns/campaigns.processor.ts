@@ -244,10 +244,20 @@ export class CampaignsProcessor {
                 // Handle double-stringified
                 const finalParsed = typeof parsedMessage === 'string' ? JSON.parse(parsedMessage) : parsedMessage;
                 if (finalParsed.csvVariables) {
-                  csvVariables = finalParsed.csvVariables;
+                  // Normalize keys to lowercase for easier lookup later
+                  const rawVars = finalParsed.csvVariables;
+                  Object.keys(rawVars).forEach(k => {
+                    csvVariables[k.toLowerCase().trim()] = rawVars[k];
+                  });
                 }
               } catch (e) { /* Ignore parse error */ }
             }
+
+            this.logger.log(`🔍 [Campaigns] Debug Variables - Message: ${message.substring(0, 100)}...`, 'CampaignsProcessor');
+            this.logger.log(`🔍 [Campaigns] Debug Variables - CSV Variables: ${JSON.stringify(csvVariables)}`, 'CampaignsProcessor');
+            this.logger.log(`🔍 [Campaigns] Debug Variables - Template Variables: ${JSON.stringify(variables)}`, 'CampaignsProcessor');
+
+            // 🚀 FEATURE: Auto-detect variables from template text if not provided
 
             // 🚀 FEATURE: Auto-detect variables from template text if not provided
             if (variables.length === 0 && template.bodyText) {
@@ -274,22 +284,13 @@ export class CampaignsProcessor {
               else if (['telefone', 'phone', 'celular', 'mobile', 'whatsapp'].includes(keyLower)) {
                 v.value = cleanPhone || '';
               }
-              // 3. Variáveis do CSV (busca exata)
-              else if (csvVariables[cleanKey]) {
-                v.value = csvVariables[cleanKey];
+              // 3. Busca direta no CSV (agora que as chaves estão normalizadas para lowercase)
+              else if (csvVariables[keyLower]) {
+                v.value = csvVariables[keyLower];
               }
-              // 4. Fallback: Busca Case-Insensitive no CSV
-              else {
-                const foundKey = Object.keys(csvVariables).find(k => k.toLowerCase() === keyLower);
-                if (foundKey) {
-                  v.value = csvVariables[foundKey];
-                }
-                // 5. Se não encontrar, manter o placeholder ou vazio? 
-                // Se for auto-detected, v.value já é "{{key}}". Se não, é string vazia.
-                // Mas para enviar template, precisa de valor.
-                else if (v.value === `{{${v.key}}}` || !v.value) {
-                  v.value = `{{${cleanKey}}}`; // Manter placeholder visualmente se não achar valor
-                }
+              // 4. Se não encontrar, manter o placeholder
+              else if (v.value === `{{${v.key}}}` || !v.value) {
+                v.value = `{{${cleanKey}}}`;
               }
             });
 

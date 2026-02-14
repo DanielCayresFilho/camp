@@ -104,10 +104,18 @@ export class CampaignsController {
 
           const variables: Record<string, string> = {};
           Object.keys(row).forEach(key => {
-            if (!reservedKeys.includes(key.toLowerCase().trim())) {
-              variables[key.trim()] = row[key];
+            const cleanKey = key.trim();
+            // Ignorar chaves vazias ou reservadas
+            if (cleanKey && !reservedKeys.includes(cleanKey.toLowerCase())) {
+              variables[cleanKey] = row[key];
             }
           });
+
+          // Log de debug para a primeira linha para validar extração
+          if (contacts.length === 0) {
+            console.log(`🔍 [Campaigns] Debug CSV Row 1: Keys=${Object.keys(row).join(',')}`);
+            console.log(`🔍 [Campaigns] Debug CSV Row 1: Variables Extracted=${JSON.stringify(variables)}`);
+          }
 
           contacts.push({
             name: nameVal || '', // Nome opcional, envia vazio se não tiver
