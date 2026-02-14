@@ -138,6 +138,18 @@ export class CampaignsService {
         });
       }
 
+      // Buscar saudações configuradas no painel
+      const controlPanel = await this.controlPanelService.findOne();
+      const configuredGreetings = controlPanel.greetingMessages;
+
+      // Se houver configurações, usar. Se não, fallback para hardcoded (segurança)
+      const GREETINGS = (configuredGreetings && configuredGreetings.length > 0)
+        ? configuredGreetings
+        : [
+          "Olá, tudo bem?",
+          "Oi, tudo certo?"
+        ];
+
       // Usar mensagem do contato se disponível, senão usar mensagem global
       let contactMessage = contact.message || message;
 
@@ -150,17 +162,10 @@ export class CampaignsService {
         if (i === 0) {
           console.log(`🛠️ [CampaignsService] Debug Contact 0: Variables=${JSON.stringify(contact.variables)}`);
         }
-        // Buscar saudações configuradas no painel
-        const controlPanel = await this.controlPanelService.findOne();
-        const configuredGreetings = controlPanel.greetingMessages;
 
-        // Se houver configurações, usar. Se não, fallback para hardcoded (segurança)
-        const GREETINGS = (configuredGreetings && configuredGreetings.length > 0)
-          ? configuredGreetings
-          : [
-            "Olá, tudo bem?",
-            "Oi, tudo certo?"
-          ];
+        // GREETINGS moved to outer scope
+
+        // Lógica de Conteúdo:
 
         // Lógica de Conteúdo:
         // 1. Se campaign.useTemplate = true, o conteúdo real será o template (enviado pelo webhook NA RESPOSTA).
@@ -235,10 +240,16 @@ export class CampaignsService {
       // Determine Final Message Payload for Queue
       let finalQueueMessage = contactMessage;
 
+      // 🚀 FEATURE: Rotação Sequencial de Saudações (Round-Robin)
+      // Garante que nunca repete a mesma saudação seguida (A, B, C, A, B...)
+      const greetingIndex = i % GREETINGS.length;
+      const selectedGreeting = [GREETINGS[greetingIndex]];
+
       // Se for template, OBRIGATORIAMENTE criar o payload JSON com variáveis
       // Ignora qualquer coisa que estava em contactMessage antes
       if (finalUseTemplate) {
         finalQueueMessage = JSON.stringify({
+          greeting: selectedGreeting, // Usa a saudação específica desta vez
           content: "__TEMPLATE_FLOW__",
           csvVariables: contact.variables || {}
         });
@@ -247,6 +258,7 @@ export class CampaignsService {
         if (!finalQueueMessage || !finalQueueMessage.trim().startsWith('{')) {
           // Fallback para garantir formato JSON mesmo sem template
           finalQueueMessage = JSON.stringify({
+            greeting: selectedGreeting, // Injeta a saudação rotacionada também aqui
             content: finalQueueMessage || "",
             csvVariables: contact.variables || {}
           });
