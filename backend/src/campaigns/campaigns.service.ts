@@ -144,6 +144,11 @@ export class CampaignsService {
       // 🚀 ANTI-BAN: Sempre envolver mensagem com saudações hardcoded
       // Se a mensagem for vazia (CSV simplificado) OU não for JSON de greeting, criar o payload
       if (!contactMessage || (contactMessage && !contactMessage.trim().startsWith('{'))) {
+
+        // Debug Variables
+        if (i === 0) {
+          console.log(`🛠️ [CampaignsService] Debug Contact 0: Variables=${JSON.stringify(contact.variables)}`);
+        }
         // Buscar saudações configuradas no painel
         const controlPanel = await this.controlPanelService.findOne();
         const configuredGreetings = controlPanel.greetingMessages;

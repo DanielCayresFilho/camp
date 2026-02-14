@@ -246,6 +246,7 @@ export class CampaignsProcessor {
                 if (finalParsed.csvVariables) {
                   // Normalize keys to lowercase for easier lookup later
                   const rawVars = finalParsed.csvVariables;
+                  csvVariables = {}; // Reset to ensure we only have normalized
                   Object.keys(rawVars).forEach(k => {
                     csvVariables[k.toLowerCase().trim()] = rawVars[k];
                   });
