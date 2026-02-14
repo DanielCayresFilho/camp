@@ -157,6 +157,24 @@ export class CampaignsProcessor {
           await this.humanizationService.sleep(delayMs);
           // ===============================================
 
+          // 🚀 GLOBAL: Extrair variáveis do CSV antes de qualquer processamento (Greeting pode sobrescrever message)
+          let globalCsvVariables: Record<string, string> = {};
+          try {
+            if (message && message.trim().startsWith('{')) {
+              const parsed = JSON.parse(message);
+              const finalParsed = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+              if (finalParsed.csvVariables) {
+                const rawVars = finalParsed.csvVariables;
+                Object.keys(rawVars).forEach(k => {
+                  globalCsvVariables[k.toLowerCase().trim()] = rawVars[k];
+                });
+                this.logger.log(`✅ [Campaigns] Global Variables Extracted: ${JSON.stringify(globalCsvVariables)}`, 'CampaignsProcessor');
+              }
+            }
+          } catch (e) {
+            this.logger.warn(`⚠️ [Campaigns] Failed to extract global variables: ${e.message}`, 'CampaignsProcessor');
+          }
+
           // Verificar se é fluxo de saudação (Anti-ban)
           let isGreetingFlow = false;
           let realPayload = '';
@@ -234,30 +252,6 @@ export class CampaignsProcessor {
               (typeof templateVariables === 'string' ? JSON.parse(templateVariables) : templateVariables)
               : [];
 
-            // 🚀 FEATURE: Variáveis Dinâmicas ({{nome}}, {{name}} e colunas do CSV)
-            let csvVariables: Record<string, string> = {};
-
-            // Tentar extrair variáveis do CSV, que podem estar no campo 'message'
-            if (message && message.trim().startsWith('{')) {
-              try {
-                const parsedMessage = JSON.parse(message);
-                // Handle double-stringified
-                const finalParsed = typeof parsedMessage === 'string' ? JSON.parse(parsedMessage) : parsedMessage;
-                if (finalParsed.csvVariables) {
-                  // Normalize keys to lowercase for easier lookup later
-                  const rawVars = finalParsed.csvVariables;
-                  csvVariables = {}; // Reset to ensure we only have normalized
-                  Object.keys(rawVars).forEach(k => {
-                    csvVariables[k.toLowerCase().trim()] = rawVars[k];
-                  });
-                }
-              } catch (e) { /* Ignore parse error */ }
-            }
-
-            this.logger.log(`🔍 [Campaigns] Debug Variables - Message: ${message.substring(0, 100)}...`, 'CampaignsProcessor');
-            this.logger.log(`🔍 [Campaigns] Debug Variables - CSV Variables: ${JSON.stringify(csvVariables)}`, 'CampaignsProcessor');
-            this.logger.log(`🔍 [Campaigns] Debug Variables - Template Variables: ${JSON.stringify(variables)}`, 'CampaignsProcessor');
-
             // 🚀 FEATURE: Auto-detect variables from template text if not provided
 
             // 🚀 FEATURE: Auto-detect variables from template text if not provided
@@ -291,9 +285,9 @@ export class CampaignsProcessor {
               else if (['telefone', 'phone', 'celular', 'mobile', 'whatsapp'].includes(keyLower)) {
                 v.value = cleanPhone || '';
               }
-              // 3. Busca direta no CSV (agora que as chaves estão normalizadas para lowercase)
-              else if (csvVariables[keyLower]) {
-                v.value = csvVariables[keyLower];
+              // 3. Busca direta no CSV (usando variáveis globais)
+              else if (globalCsvVariables[keyLower]) {
+                v.value = globalCsvVariables[keyLower];
               }
               // 4. Se não encontrar, manter o placeholder
               else if (v.value === `{{${v.key}}}` || !v.value) {
