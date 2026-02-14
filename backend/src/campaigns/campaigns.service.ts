@@ -229,6 +229,30 @@ export class CampaignsService {
         },
       });
 
+      // 🚀 DEBUG: Version Check
+      if (i === 0) console.log(`🛠️ [CampaignsService] v2026-02-14-FIX-PARANOID - Processing Contact 0`);
+
+      // Determine Final Message Payload for Queue
+      let finalQueueMessage = contactMessage;
+
+      // Se for template, OBRIGATORIAMENTE criar o payload JSON com variáveis
+      // Ignora qualquer coisa que estava em contactMessage antes
+      if (finalUseTemplate) {
+        finalQueueMessage = JSON.stringify({
+          content: "__TEMPLATE_FLOW__",
+          csvVariables: contact.variables || {}
+        });
+      } else {
+        // Se não for template, garante que é JSON se ainda não for
+        if (!finalQueueMessage || !finalQueueMessage.trim().startsWith('{')) {
+          // Fallback para garantir formato JSON mesmo sem template
+          finalQueueMessage = JSON.stringify({
+            content: finalQueueMessage || "",
+            csvVariables: contact.variables || {}
+          });
+        }
+      }
+
       // Construir payload da fila explicitamente para debug
       const queuePayload = {
         campaignId: campaignRecord.id, // ID
@@ -236,17 +260,14 @@ export class CampaignsService {
         contactPhone: normalizedPhone,
         contactSegment: campaign.contactSegment,
         lineId: lineId,
-        // 🚀 FIX: Garantir que message seja JSON se for template
-        message: (finalUseTemplate && (!contactMessage || !contactMessage.trim().startsWith('{')))
-          ? JSON.stringify({ content: "__TEMPLATE_FLOW__", csvVariables: contact.variables || {} })
-          : contactMessage,
+        message: finalQueueMessage, // Usar a variável calculada explicitamente
         useTemplate: finalUseTemplate,
         templateId: finalTemplateId,
         templateVariables: campaign.templateVariables,
       };
 
       if (i === 0) {
-        console.log(`🛠️ [CampaignsService] DEBUG FINAL: UseTemplate=${finalUseTemplate}, ContactMsgType=${typeof contactMessage}`);
+        console.log(`🛠️ [CampaignsService] DEBUG FINAL: UseTemplate=${finalUseTemplate}`);
         console.log(`🛠️ [CampaignsService] Queue Payload Sample:`, JSON.stringify(queuePayload, null, 2));
       }
 
