@@ -293,6 +293,7 @@ export class CampaignsProcessor {
               }
               // 4. Se não encontrar, manter o placeholder
               else if (v.value === `{{${v.key}}}` || !v.value) {
+                this.logger.warn(`⚠️ [Campaigns] Variable '${cleanKey}' (lower: '${keyLower}') NOT FOUND in CSV. Available keys: ${Object.keys(globalCsvVariables).join(', ')}`, 'CampaignsProcessor');
                 v.value = `{{${cleanKey}}}`;
               }
             });
