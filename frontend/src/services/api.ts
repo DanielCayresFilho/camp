@@ -552,6 +552,25 @@ export const campaignsService = {
     return response.json();
   },
 
+  previewCSV: async (file: File, templateId: number): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('templateId', String(templateId));
+
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/campaigns/preview`, { // URL relativa se estiver no mesmo domínio, mas aqui usamos a constante
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Erro ao gerar preview' }));
+      throw new Error(error.message);
+    }
+    return response.json();
+  },
+
   delete: async (id: number): Promise<void> => {
     await apiRequest(`/campaigns/${id}`, { method: 'DELETE' });
   },

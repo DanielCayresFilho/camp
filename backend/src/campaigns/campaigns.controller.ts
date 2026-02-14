@@ -44,6 +44,68 @@ export class CampaignsController {
     return this.campaignsService.create(createCampaignDto);
   }
 
+  @Post("preview")
+  @UseInterceptors(FileInterceptor("file"))
+  async preview(
+    @UploadedFile() file: Express.Multer.File,
+    @Body("templateId") templateId: string
+  ) {
+    if (!file || !templateId) {
+      throw new BadRequestException("File and templateId are required");
+    }
+    const contacts: any[] = [];
+    const stream = Readable.from(file.buffer.toString());
+
+    return new Promise((resolve, reject) => {
+      stream
+        .pipe(csv({ separator: ';' }))
+        .on("data", (row) => {
+          if (contacts.length === 0) { // Only need the first row for preview
+            // Same parsing logic as uploadCsv
+            const cleanRow: any = {};
+            Object.keys(row).forEach(k => cleanRow[k.trim()] = row[k]);
+
+            const phoneKey = Object.keys(cleanRow).find(k =>
+              ['phone', 'telefone', 'celular', 'mobile', 'tel'].includes(k.toLowerCase())
+            );
+            const nameKey = Object.keys(cleanRow).find(k =>
+              ['name', 'nome', 'cliente'].includes(k.toLowerCase())
+            );
+
+            const reservedKeys = [
+              'phone', 'telefone', 'celular', 'mobile', 'tel', 'zap', 'contact', 'contato',
+              'name', 'nome', 'cliente', 'customer',
+              'cpf', 'contrato', 'contract', 'segment', 'mensagem', 'message'
+            ];
+
+            const variables: Record<string, string> = {};
+            Object.keys(cleanRow).forEach(key => {
+              if (!reservedKeys.includes(key.toLowerCase())) {
+                variables[key] = cleanRow[key];
+              }
+            });
+
+            contacts.push({
+              phone: phoneKey ? cleanRow[phoneKey] : '00000000',
+              name: nameKey ? cleanRow[nameKey] : 'Nome Teste',
+              variables
+            });
+          }
+        })
+        .on("end", async () => {
+          if (contacts.length === 0) return reject(new BadRequestException("CSV empty"));
+          try {
+            const result = await this.campaignsService.previewTemplate(
+              contacts[0],
+              parseInt(templateId)
+            );
+            resolve(result);
+          } catch (e) { reject(e); }
+        })
+        .on("error", reject);
+    });
+  }
+
   @Post(":id/upload")
   @Roles(Role.admin, Role.supervisor, Role.digital)
   @UseInterceptors(FileInterceptor("file"))

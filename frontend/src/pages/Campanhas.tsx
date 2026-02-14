@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Upload, CheckCircle, Loader2, Trash2 } from "lucide-react";
+import { Upload, CheckCircle, Loader2, Trash2, Search } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
@@ -14,7 +14,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CrudTable, Column } from "@/components/crud/CrudTable";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -425,16 +424,30 @@ export default function Campanhas() {
                 </div>
               </div>
 
-              {/* Greeting Configuration Removed - Using Hardcoded List */}
-              <div className="p-4 bg-secondary/20 rounded-lg border border-secondary/40">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-secondary-foreground font-semibold">👋 Abordagem Amigável (Ativo)</span>
-                  <Badge variant="outline" className="text-xs font-normal bg-success/10 text-success border-success/30">Auto</Badge>
+              {formData.useTemplate && csvFile && (
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!formData.templateId) return alert("Selecione um template");
+                      if (!csvFile) return alert("Selecione um CSV");
+                      try {
+                        const preview = await campaignsService.previewCSV(csvFile, parseInt(formData.templateId));
+                        alert(`SAUDAÇÃO (Sorteada):\n${preview.greeting}\n\nSAUDAÇÕES DISPONÍVEIS:\n${JSON.stringify(preview.allGreetings)}\n\nTEMPLATE ORIGINAL:\n${preview.original}\n\nPREVIEW TEMPLATE (1ª linha):\n${preview.preview}\n\nVARIÁVEIS DETECTADAS:\n${JSON.stringify(preview.variablesDetected, null, 2)}`);
+                      } catch (e) {
+                        alert("Erro no preview: " + e.message);
+                      }
+                    }}
+                  >
+                    <Search className="w-4 h-4 mr-2" />
+                    Simular (1ª linha)
+                  </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  O sistema enviará automaticamente uma das 20 variações de saudação (ex: "Olá, tudo bem?", "E aí?") antes da mensagem principal.
-                </p>
-              </div>
+              )}
+
+
 
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">

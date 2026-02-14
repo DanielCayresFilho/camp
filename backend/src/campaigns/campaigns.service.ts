@@ -555,9 +555,77 @@ export class CampaignsService {
 
     return {
       totalSent,
-      queueCount,
       totalCost,
       costPerMessage
+    };
+  }
+
+  async previewTemplate(contact: any, templateId: number) {
+    const template = await this.prisma.template.findUnique({
+      where: { id: templateId },
+    });
+
+    if (!template) {
+      throw new NotFoundException('Template não encontrado');
+    }
+
+    let variables: any[] = [];
+    // Auto-detect variables from template text
+    if (template.bodyText) {
+      const matches = template.bodyText.match(/{{[^}]+}}/g);
+      if (matches) {
+        matches.forEach(match => {
+          const key = match.replace(/[{{}}]/g, '').trim();
+          variables.push({ key, value: match });
+        });
+      }
+    }
+
+    // Apply substitution logic (simulating CampaignsProcessor)
+    const csvVariables = contact.variables || {};
+    // Normalize keys
+    const normalizedCsvVars: any = {};
+    Object.keys(csvVariables).forEach(k => {
+      normalizedCsvVars[k.toLowerCase().trim()] = csvVariables[k];
+    });
+
+    variables.forEach((v: any) => {
+      const cleanKey = v.key.replace(/[{{}}]/g, '').trim();
+      const keyLower = cleanKey.toLowerCase();
+
+      if (['nome', 'name', 'cliente'].includes(keyLower)) {
+        v.value = contact.name || 'Cliente';
+      } else if (['telefone', 'phone', 'celular', 'mobile', 'whatsapp'].includes(keyLower)) {
+        v.value = contact.phone || '';
+      } else if (normalizedCsvVars[keyLower]) {
+        v.value = normalizedCsvVars[keyLower];
+      }
+    });
+
+    let templateText = template.bodyText;
+    variables.forEach((v: any, index: number) => {
+      templateText = templateText.replace(`{{${index + 1}}}`, v.value);
+      templateText = templateText.replace(`{{${v.key}}}`, v.value);
+    });
+
+    // Simulate Greeting Selection
+    const controlPanel = await this.controlPanelService.findOne();
+    const configuredGreetings = controlPanel.greetingMessages;
+
+    // Logic matches uploadCampaign
+    const GREETINGS = (configuredGreetings && configuredGreetings.length > 0)
+      ? configuredGreetings
+      : ["Olá, tudo bem?", "Oi, tudo certo?"];
+
+    const randomGreeting = GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+
+    return {
+      original: template.bodyText,
+      preview: templateText,
+      greeting: randomGreeting,
+      allGreetings: GREETINGS, // Show user what is configured
+      variablesDetected: variables,
+      csvData: contact
     };
   }
 }
