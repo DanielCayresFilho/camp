@@ -273,8 +273,8 @@ export class CampaignsProcessor {
 
               // Debug Loop
               if (index === 0) { // Log first variable to avoid spam
-                this.logger.log(`🔍 [Campaigns] Checking Key: '${cleanKey}' (lower: '${keyLower}') against CSV Keys: ${Object.keys(csvVariables).join(', ')}`, 'CampaignsProcessor');
-                this.logger.log(`🔍 [Campaigns] CSV Value Found?: ${csvVariables[keyLower]}`, 'CampaignsProcessor');
+                this.logger.log(`🔍 [Campaigns] Checking Key: '${cleanKey}' (lower: '${keyLower}') against CSV Keys: ${Object.keys(globalCsvVariables).join(', ')}`, 'CampaignsProcessor');
+                this.logger.log(`🔍 [Campaigns] CSV Value Found?: ${globalCsvVariables[keyLower]}`, 'CampaignsProcessor');
               }
 
               // 1. Nome do Contato
