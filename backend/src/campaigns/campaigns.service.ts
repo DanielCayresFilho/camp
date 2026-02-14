@@ -238,7 +238,10 @@ export class CampaignsService {
           contactPhone: normalizedPhone,
           contactSegment: campaign.contactSegment,
           lineId: lineId,
-          message: contactMessage,
+          // 🚀 FIX: Garantir que message seja JSON se for template
+          message: (finalUseTemplate && (!contactMessage || !contactMessage.trim().startsWith('{')))
+            ? JSON.stringify({ content: "__TEMPLATE_FLOW__", csvVariables: contact.variables || {} })
+            : contactMessage,
           useTemplate: finalUseTemplate,
           templateId: finalTemplateId,
           templateVariables: campaign.templateVariables,

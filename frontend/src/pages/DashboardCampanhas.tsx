@@ -52,7 +52,7 @@ export function DashboardCampanhas() {
                             <TrendingUp className="h-4 w-4 text-green-500" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{loading ? "..." : stats.totalSent.toLocaleString()}</div>
+                            <div className="text-2xl font-bold">{loading ? "..." : (stats?.totalSent ?? 0).toLocaleString()}</div>
                             <p className="text-xs text-muted-foreground">
                                 Total de mensagens entregues
                             </p>
@@ -68,10 +68,10 @@ export function DashboardCampanhas() {
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">
-                                {loading ? "..." : `R$ ${stats.totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                                {loading ? "..." : `R$ ${(stats?.totalCost ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                             </div>
                             <p className="text-xs text-muted-foreground">
-                                Baseado em R$ {stats.costPerMessage.toFixed(2)} por mensagem
+                                Baseado em R$ {(stats?.costPerMessage ?? 0).toFixed(2)} por mensagem
                             </p>
                         </CardContent>
                     </Card>
@@ -84,7 +84,7 @@ export function DashboardCampanhas() {
                             <Clock className="h-4 w-4 text-orange-500" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{loading ? "..." : stats.queueCount.toLocaleString()}</div>
+                            <div className="text-2xl font-bold">{loading ? "..." : (stats?.queueCount ?? 0).toLocaleString()}</div>
                             <p className="text-xs text-muted-foreground">
                                 Mensagens aguardando envio
                             </p>
