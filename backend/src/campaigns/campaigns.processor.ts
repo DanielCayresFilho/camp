@@ -272,10 +272,16 @@ export class CampaignsProcessor {
               }
             }
 
-            variables.forEach((v) => {
+            variables.forEach((v, index) => {
               // Limpar a chave para comparação (remover chaves se vierem do auto-detect)
               const cleanKey = v.key.replace(/[{{}}]/g, '').trim();
               const keyLower = cleanKey.toLowerCase();
+
+              // Debug Loop
+              if (index === 0) { // Log first variable to avoid spam
+                this.logger.log(`🔍 [Campaigns] Checking Key: '${cleanKey}' (lower: '${keyLower}') against CSV Keys: ${Object.keys(csvVariables).join(', ')}`, 'CampaignsProcessor');
+                this.logger.log(`🔍 [Campaigns] CSV Value Found?: ${csvVariables[keyLower]}`, 'CampaignsProcessor');
+              }
 
               // 1. Nome do Contato
               if (['nome', 'name', 'cliente'].includes(keyLower)) {

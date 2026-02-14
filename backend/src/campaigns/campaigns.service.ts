@@ -143,7 +143,8 @@ export class CampaignsService {
 
       // 🚀 ANTI-BAN: Sempre envolver mensagem com saudações hardcoded
       // Se a mensagem for vazia (CSV simplificado) OU não for JSON de greeting, criar o payload
-      if (!contactMessage || (contactMessage && !contactMessage.trim().startsWith('{'))) {
+      // OU se estiver usando Template (precisamos injetar variáveis)
+      if (finalUseTemplate || !contactMessage || (contactMessage && !contactMessage.trim().startsWith('{'))) {
 
         // Debug Variables
         if (i === 0) {
@@ -202,6 +203,10 @@ export class CampaignsService {
           content: content,
           csvVariables: contact.variables || {} // 🚀 FEATURE: Armazenar variáveis do CSV
         });
+
+        if (i === 0) {
+          console.log(`🛠️ [CampaignsService] Final JSON Payload: ${contactMessage}`);
+        }
       }
 
       // Criar registro da campanha
