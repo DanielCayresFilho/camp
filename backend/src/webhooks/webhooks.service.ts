@@ -310,6 +310,14 @@ export class WebhooksService {
                 });
 
                 // Enviar mensagem real (Payload) via fila de campanhas
+                // 🚀 FIX: Garantir que o payload JSON seja preservado para o processador
+                const variables = parsed.csvVariables || {};
+                const finalMessage = JSON.stringify({
+                  content: parsed.content, // __TEMPLATE_FLOW__ ou texto
+                  csvVariables: variables,
+                  greeting: [] // Sem saudação nesta etapa (já passou)
+                });
+
                 await this.campaignsQueue.add(
                   'send-campaign-message',
                   {
@@ -318,7 +326,7 @@ export class WebhooksService {
                     contactPhone: contactIdentifier,
                     contactSegment: activeCampaign.contactSegment,
                     lineId: activeCampaign.lineReceptor,
-                    message: parsed.content, // O CONTEÚDO REAL
+                    message: finalMessage, // Enviar JSON completo
                     useTemplate: activeCampaign.useTemplate,
                     templateId: activeCampaign.templateId,
                     templateVariables: activeCampaign.templateVariables,
