@@ -225,8 +225,8 @@ export class CampaignsController {
 
   @Get('dashboard-stats')
   @Roles(Role.admin, Role.supervisor)
-  getDashboardStats() {
-    return this.campaignsService.getDashboardStats();
+  getDashboardStats(@Query('campaignName') campaignName?: string) {
+    return this.campaignsService.getDashboardStats(campaignName);
   }
 
   @Get()

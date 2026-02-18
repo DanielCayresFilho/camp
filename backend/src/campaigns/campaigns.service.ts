@@ -588,10 +588,16 @@ export class CampaignsService {
     return sortedMessages;
   }
 
-  async getDashboardStats() {
+  async getDashboardStats(campaignName?: string) {
+    const whereClause: any = {};
+    if (campaignName) {
+      whereClause.name = campaignName;
+    }
+
     // 1. Total de disparos realizados: Status response=true ou dispatchedAt != null
     const totalSent = await this.prisma.campaign.count({
       where: {
+        ...whereClause,
         dispatchedAt: { not: null },
       },
     });
@@ -599,6 +605,7 @@ export class CampaignsService {
     // 2. Fila (não despachados): dispatchedAt = null e messageId começa com SCHEDULED ou é null (ainda não processado)
     const queueCount = await this.prisma.campaign.count({
       where: {
+        ...whereClause,
         dispatchedAt: null,
       },
     });
