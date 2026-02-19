@@ -475,24 +475,69 @@ export class CampaignsService {
   }
 
   async remove(id: number) {
-    await this.findOne(id);
+    const campaign = await this.findOne(id);
 
-    return this.prisma.campaign.delete({
-      where: { id },
-    });
+    // 🚀 FEATURE: "Remover" agora apenas PAUSA a campanha
+    // Mudamos o messageId para iniciar com PAUSED:
+    if (campaign.response === false && !campaign.dispatchedAt) {
+      const currentId = campaign.messageId || `SCHEDULED:${Date.now()}`;
+      if (!currentId.startsWith('PAUSED')) {
+        return this.prisma.campaign.update({
+          where: { id },
+          data: {
+            messageId: `PAUSED:${currentId.replace('SCHEDULED:', '')}`
+          }
+        });
+      }
+    }
+
+    return campaign; // Retorna sem deletar
   }
 
   async removeByName(name: string) {
-    // Delete all campaigns with this name
-    const result = await this.prisma.campaign.deleteMany({
-      where: { name },
+    // 🚀 FEATURE: "Remover" agora PAUSA todas as mensagens pendentes desta campanha
+
+    // 1. Buscar mensagens pendentes
+    const pending = await this.prisma.campaign.findMany({
+      where: {
+        name,
+        response: false,
+        dispatchedAt: null
+      }
     });
 
-    if (result.count === 0) {
-      throw new NotFoundException(`Nenhuma campanha encontrada com o nome: ${name}`);
+    if (pending.length === 0) {
+      // Se não tem pendentes, verificar se existe alguma campanha com esse nome para não dar erro fake
+      const count = await this.prisma.campaign.count({ where: { name } });
+      if (count === 0) {
+        throw new NotFoundException(`Nenhuma campanha encontrada com o nome: ${name}`);
+      }
+      return { paused: 0, message: "Todas as mensagens já foram enviadas ou pausadas." };
     }
 
-    return { deleted: result.count, name };
+    // 2. Atualizar messageId para PAUSED (um por um para preservar o timestamp individual se existir)
+    // Para performance em massa, poderíamos usar query raw, mas aqui garante integridade
+    let pausedCount = 0;
+
+    // Batch updates seriam ideais, mas Prisma não tem updateMany com lógica de string
+    // Vamos fazer em Promise.all limitado
+    const updatePromises = pending.map(c => {
+      const currentId = c.messageId || `SCHEDULED:${Date.now()}`;
+      if (!currentId.startsWith('PAUSED')) {
+        pausedCount++;
+        return this.prisma.campaign.update({
+          where: { id: c.id },
+          data: {
+            messageId: `PAUSED:${currentId.replace('SCHEDULED:', '')}`
+          }
+        });
+      }
+      return Promise.resolve();
+    });
+
+    await Promise.all(updatePromises);
+
+    return { paused: pausedCount, name, message: `Campanha pausada! ${pausedCount} mensagens interrompidas.` };
   }
 
   async getStats(campaignName: string) {

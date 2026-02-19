@@ -50,13 +50,19 @@ export class CampaignsProcessor {
 
     try {
       // Verificar se a campanha ainda existe (pode ter sido deletada/parada pelo usuário)
+      // 🚀 FEATURE: Verificar se foi PAUSADA (messageId começa com PAUSED:)
       const campaignExists = await this.prisma.campaign.findUnique({
         where: { id: campaignId },
-        select: { id: true }
+        select: { id: true, messageId: true }
       });
 
       if (!campaignExists) {
         console.log(`🛑 [Campaigns] Campanha ${campaignId} não encontrada (deletada?), cancelando envio para ${contactPhone}`);
+        return;
+      }
+
+      if (campaignExists.messageId && campaignExists.messageId.startsWith('PAUSED')) {
+        console.log(`⏸️ [Campaigns] Campanha ${campaignId} está PAUSADA. Cancelando envio para ${contactPhone}.`);
         return;
       }
 

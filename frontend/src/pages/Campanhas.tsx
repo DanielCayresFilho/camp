@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Upload, CheckCircle, Loader2, Trash2, Search } from "lucide-react";
+import { Upload, CheckCircle, Loader2, PauseCircle, Search } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
@@ -206,13 +206,14 @@ export default function Campanhas() {
           <Button
             variant="ghost"
             size="icon"
-            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            className="text-orange-500 hover:text-orange-600 hover:bg-orange-50"
+            title="Pausar Campanha"
             onClick={() => {
               setCampaignToDelete(campaign.name);
               setDeleteDialogOpen(true);
             }}
           >
-            <Trash2 className="h-4 w-4" />
+            <PauseCircle className="h-4 w-4" />
           </Button>
         </div>
       )
@@ -348,16 +349,16 @@ export default function Campanhas() {
     if (!campaignToDelete) return;
 
     try {
-      await campaignsService.deleteByName(campaignToDelete);
+      await campaignsService.deleteByName(campaignToDelete); // Backend agora pausa
       toast({
-        title: "Campanha excluída",
-        description: "A campanha e suas mensagens pendentes foram removidas.",
+        title: "Campanha Pausada",
+        description: "Os envios foram interrompidos com sucesso.",
       });
       loadCampaigns();
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Erro ao excluir",
+        title: "Erro ao pausar",
         description: error instanceof Error ? error.message : "Erro desconhecido",
       });
     } finally {
@@ -568,16 +569,17 @@ export default function Campanhas() {
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Excluir Campanha e Parar Envios?</AlertDialogTitle>
+              <AlertDialogTitle>Pausar Campanha?</AlertDialogTitle>
               <AlertDialogDescription>
-                Esta ação não pode ser desfeita. Isso excluirá permanentemente a campanha
-                e cancelará todas as mensagens que ainda não foram enviadas.
+                Tem certeza que deseja pausar a campanha <strong>{campaignToDelete}</strong>?
+                <br /><br />
+                Os envios pendentes serão interrompidos imediatamente. Nenhum dado será apagado.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteCampaign} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                Excluir e Parar
+              <AlertDialogAction onClick={handleDeleteCampaign} className="bg-orange-500 hover:bg-orange-600">
+                Pausar Envios
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
