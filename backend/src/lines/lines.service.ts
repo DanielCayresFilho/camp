@@ -1186,34 +1186,8 @@ export class LinesService {
     return evolutions.map(e => e.evolutionName).join(', ') || 'nenhuma';
   }
 
-  async fetchInstancesFromEvolution(evolutionName: string) {
-    const evolution = await this.prisma.evolution.findUnique({
-      where: { evolutionName },
-    });
-
-    if (!evolution) {
-      throw new NotFoundException('Evolution não encontrada');
-    }
-
-    try {
-      const response = await axios.get(
-        `${evolution.evolutionUrl}/instance/fetchInstances`,
-        {
-          headers: {
-            'apikey': evolution.evolutionKey,
-          },
-          params: {
-            instanceName: evolutionName,
-          },
-        }
-      );
-
-      return response.data;
-    } catch (error) {
-      console.error('Erro ao buscar instâncias:', error.response?.data || error.message);
-      throw new BadRequestException('Erro ao buscar instâncias da Evolution API');
-    }
-  }
+  // fetchInstancesFromEvolution - ver implementação completa no final da classe
+  // Este stub foi substituído pela versão completa abaixo (linha ~1920+)
 
   // Distribuir mensagem inbound entre os operadores da linha (máximo 2)
   // Retorna o ID do operador que deve receber a mensagem
@@ -1917,5 +1891,134 @@ export class LinesService {
       console.error('❌ [LinesService] Erro ao tentar vincular linha automaticamente:', error);
       // Não lançar erro, apenas logar - a linha foi criada com sucesso
     }
+  }
+
+  /**
+   * 🚀 FEATURE: Importar instâncias existentes da Evolution API
+   * Busca instâncias já criadas na Evolution e retorna quais ainda não estão na plataforma
+   */
+  async fetchInstancesFromEvolution(evolutionName: string) {
+    const evolution = await this.prisma.evolution.findUnique({
+      where: { evolutionName },
+    });
+
+    if (!evolution) {
+      throw new NotFoundException(`Evolution "${evolutionName}" não encontrada.`);
+    }
+
+    try {
+      const response = await axios.get(
+        `${evolution.evolutionUrl}/instance/fetchInstances`,
+        {
+          headers: { 'apikey': evolution.evolutionKey },
+          timeout: 10000,
+        }
+      );
+
+      const instances: any[] = Array.isArray(response.data) ? response.data : [];
+
+      // Buscar linhas já cadastradas na plataforma
+      const existingLines = await this.prisma.linesStock.findMany({
+        select: { phone: true },
+      });
+      const existingPhones = new Set(existingLines.map(l => l.phone));
+
+      // Mapear instâncias com status e se já existem
+      return instances.map(inst => {
+        const instanceName: string = inst.instance?.instanceName || inst.instanceName || '';
+        const state: string = inst.instance?.state || inst.connectionStatus || 'unknown';
+        // Extrair telefone do JID (ex: "5511999999999@s.whatsapp.net" → "5511999999999")
+        const ownerJid: string = inst.instance?.owner || inst.ownerJid || '';
+        const phone = ownerJid.split('@')[0] || '';
+
+        return {
+          instanceName,
+          phone,
+          state,
+          alreadyImported: phone ? existingPhones.has(phone) : false,
+        };
+      });
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar instâncias da Evolution:', error.response?.data || error.message);
+      throw new BadRequestException(`Erro ao conectar à Evolution API: ${error.message}`);
+    }
+  }
+
+  /**
+   * 🚀 FEATURE: Importar em lote instâncias selecionadas da Evolution
+   */
+  async importInstances(evolutionName: string, instances: Array<{ instanceName: string; phone: string }>, segment?: number) {
+    const evolution = await this.prisma.evolution.findUnique({
+      where: { evolutionName },
+    });
+
+    if (!evolution) {
+      throw new NotFoundException(`Evolution "${evolutionName}" não encontrada.`);
+    }
+
+    const results = {
+      imported: [] as string[],
+      skipped: [] as string[],
+      errors: [] as string[],
+    };
+
+    for (const inst of instances) {
+      if (!inst.phone) {
+        results.errors.push(`${inst.instanceName}: telefone não disponível (instância pode estar desconectada)`);
+        continue;
+      }
+
+      // Verificar se já existe
+      const existing = await this.prisma.linesStock.findUnique({
+        where: { phone: inst.phone },
+      });
+
+      if (existing) {
+        results.skipped.push(inst.phone);
+        continue;
+      }
+
+      try {
+        // Configurar webhook para a instância importada
+        const webhookUrl = `${process.env.APP_URL || 'http://localhost:3000'}/webhooks/evolution`;
+        try {
+          await axios.post(
+            `${evolution.evolutionUrl}/webhook/set/${inst.instanceName}`,
+            {
+              url: webhookUrl,
+              enabled: true,
+              webhook_by_events: true,
+              webhook_base64: false,
+              events: ['QRCODE_UPDATED', 'MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'MESSAGES_DELETE', 'SEND_MESSAGE', 'CONNECTION_UPDATE', 'CHATS_UPSERT', 'CONTACTS_UPDATE'],
+            },
+            {
+              headers: { 'apikey': evolution.evolutionKey, 'Content-Type': 'application/json' },
+              timeout: 10000,
+            }
+          );
+        } catch (webhookErr) {
+          console.warn(`⚠️ Webhook não configurado para ${inst.instanceName}:`, webhookErr.message);
+        }
+
+        // Criar linha na plataforma (sem criar nova instância na Evolution, ela já existe)
+        await this.prisma.linesStock.create({
+          data: {
+            phone: inst.phone,
+            evolutionName: evolution.evolutionName,
+            lineStatus: 'active',
+            segment: segment || null,
+          },
+        });
+
+        results.imported.push(inst.phone);
+        console.log(`✅ [ImportInstances] Linha ${inst.phone} importada da instância ${inst.instanceName}`);
+      } catch (error: any) {
+        const msg = error.message?.includes('P2002') ? `${inst.phone}: já cadastrado` : `${inst.phone}: ${error.message}`;
+        results.errors.push(msg);
+        console.error(`❌ [ImportInstances] Erro ao importar ${inst.phone}:`, error.message);
+      }
+    }
+
+    return results;
   }
 }

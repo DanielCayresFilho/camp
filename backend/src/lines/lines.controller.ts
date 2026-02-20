@@ -78,6 +78,12 @@ export class LinesController {
     return this.linesService.fetchInstancesFromEvolution(evolutionName);
   }
 
+  @Post('import-batch')
+  @Roles(Role.admin, Role.ativador)
+  importInstances(@Body() body: { evolutionName: string; instances: Array<{ instanceName: string; phone: string }>; segment?: number }) {
+    return this.linesService.importInstances(body.evolutionName, body.instances, body.segment);
+  }
+
   @Get('available/:segment')
   @Roles(Role.admin)
   getAvailable(@Param('segment') segment: string) {

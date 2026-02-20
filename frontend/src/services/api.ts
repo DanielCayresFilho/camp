@@ -347,8 +347,15 @@ export const linesService = {
     return apiRequest(`/lines/allocations-log?limit=${limit}`);
   },
 
-  getInstances: async (evolutionName: string): Promise<Array<{ instanceName: string; status: string }>> => {
+  getInstances: async (evolutionName: string): Promise<Array<{ instanceName: string; phone: string; state: string; alreadyImported: boolean }>> => {
     return apiRequest(`/lines/instances/${evolutionName}`);
+  },
+
+  importInstances: async (evolutionName: string, instances: Array<{ instanceName: string; phone: string }>, segment?: number): Promise<{ imported: string[]; skipped: string[]; errors: string[] }> => {
+    return apiRequest('/lines/import-batch', {
+      method: 'POST',
+      body: JSON.stringify({ evolutionName, instances, segment }),
+    });
   },
 
   getAvailable: async (segment: number): Promise<Line[]> => {

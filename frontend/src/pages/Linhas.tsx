@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { QrCode, Loader2, RefreshCw } from "lucide-react";
+import { QrCode, Loader2, RefreshCw, Download } from "lucide-react";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { toast } from "@/hooks/use-toast";
 import { linesService, segmentsService, evolutionService, type Line as ApiLine, type Segment, type Evolution } from "@/services/api";
@@ -66,6 +66,15 @@ export default function Linhas() {
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
   const [qrCodeLineId, setQrCodeLineId] = useState<number | null>(null); // ID da linha sendo escaneada
   const { playSuccessSound, playErrorSound, playWarningSound } = useNotificationSound();
+
+  // Import instances state
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importEvolution, setImportEvolution] = useState('');
+  const [importSegment, setImportSegment] = useState('');
+  const [importInstances, setImportInstances] = useState<Array<{ instanceName: string; phone: string; state: string; alreadyImported: boolean }>>([]);
+  const [importSelected, setImportSelected] = useState<Set<string>>(new Set());
+  const [isLoadingInstances, setIsLoadingInstances] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -371,6 +380,73 @@ export default function Linhas() {
     }
   };
 
+  const handleOpenImport = () => {
+    setImportEvolution('');
+    setImportSegment('');
+    setImportInstances([]);
+    setImportSelected(new Set());
+    setIsImportOpen(true);
+  };
+
+  const handleLoadInstances = async () => {
+    if (!importEvolution) return;
+    setIsLoadingInstances(true);
+    setImportInstances([]);
+    setImportSelected(new Set());
+    try {
+      const data = await linesService.getInstances(importEvolution);
+      setImportInstances(data);
+      // Pre-select non-imported connected instances
+      const preSelected = new Set(
+        data
+          .filter(i => !i.alreadyImported && i.state === 'open' && i.phone)
+          .map(i => i.instanceName)
+      );
+      setImportSelected(preSelected);
+    } catch (error) {
+      toast({ title: 'Erro ao carregar instâncias', description: error instanceof Error ? error.message : 'Erro desconhecido', variant: 'destructive' });
+    } finally {
+      setIsLoadingInstances(false);
+    }
+  };
+
+  const toggleImportInstance = (instanceName: string) => {
+    setImportSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(instanceName)) next.delete(instanceName);
+      else next.add(instanceName);
+      return next;
+    });
+  };
+
+  const handleDoImport = async () => {
+    const toImport = importInstances.filter(i => importSelected.has(i.instanceName) && i.phone);
+    if (toImport.length === 0) {
+      toast({ title: 'Nenhuma instância selecionada', variant: 'destructive' });
+      return;
+    }
+    setIsImporting(true);
+    try {
+      const result = await linesService.importInstances(
+        importEvolution,
+        toImport.map(i => ({ instanceName: i.instanceName, phone: i.phone })),
+        importSegment ? Number(importSegment) : undefined
+      );
+      playSuccessSound();
+      toast({
+        title: `✅ Importação concluída`,
+        description: `${result.imported.length} importadas, ${result.skipped.length} já existiam, ${result.errors.length} erros.`,
+      });
+      setIsImportOpen(false);
+      loadData();
+    } catch (error) {
+      playErrorSound();
+      toast({ title: 'Erro na importação', description: error instanceof Error ? error.message : 'Erro desconhecido', variant: 'destructive' });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleShowQrCode = async (line?: Line) => {
     const targetLine = line || editingLine;
     if (!targetLine) return;
@@ -607,6 +683,10 @@ export default function Linhas() {
                 </SelectContent>
               </Select>
             </div>
+            <Button variant="outline" onClick={handleOpenImport} className="ml-auto">
+              <Download className="mr-2 h-4 w-4" />
+              Importar da Evolution
+            </Button>
           </div>
           <CrudTable
             title="Linhas WhatsApp"
@@ -697,6 +777,102 @@ export default function Linhas() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Import Instances Modal */}
+      <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5" />
+              Importar Instâncias da Evolution
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 flex-1 overflow-y-auto py-2">
+            {/* Step 1: Select Evolution + Segment */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Servidor Evolution</Label>
+                <Select value={importEvolution} onValueChange={setImportEvolution}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a Evolution" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {evolutions.map(e => (
+                      <SelectItem key={e.id} value={e.evolutionName}>{e.evolutionName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Segmento (opcional)</Label>
+                <Select value={importSegment} onValueChange={setImportSegment}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sem segmento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Sem segmento</SelectItem>
+                    {segments.map(s => (
+                      <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Button onClick={handleLoadInstances} disabled={!importEvolution || isLoadingInstances} variant="outline" className="w-full">
+              {isLoadingInstances ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              Carregar Instâncias
+            </Button>
+
+            {/* Step 2: Select instances */}
+            {importInstances.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Instâncias encontradas ({importInstances.length})</Label>
+                  <span className="text-xs text-muted-foreground">{importSelected.size} selecionada(s)</span>
+                </div>
+                <div className="border rounded-lg divide-y max-h-64 overflow-y-auto">
+                  {importInstances.map(inst => (
+                    <div key={inst.instanceName} className={`flex items-center gap-3 p-3 ${inst.alreadyImported ? 'opacity-50' : 'hover:bg-muted/50'}`}>
+                      <Checkbox
+                        checked={importSelected.has(inst.instanceName)}
+                        onCheckedChange={() => !inst.alreadyImported && toggleImportInstance(inst.instanceName)}
+                        disabled={inst.alreadyImported || !inst.phone}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{inst.instanceName}</p>
+                        <p className="text-xs text-muted-foreground">{inst.phone || 'Sem telefone (desconectada)'}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${inst.state === 'open' ? 'bg-green-100 text-green-700' :
+                            inst.state === 'close' ? 'bg-orange-100 text-orange-700' :
+                              'bg-gray-100 text-gray-600'
+                          }`}>
+                          {inst.state === 'open' ? '🟢 Conectada' : inst.state === 'close' ? '🔴 Desconectada' : inst.state}
+                        </span>
+                        {inst.alreadyImported && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">✓ Já importada</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setIsImportOpen(false)} disabled={isImporting}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleDoImport}
+              disabled={importSelected.size === 0 || isImporting}
+            >
+              {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              Importar {importSelected.size > 0 ? `(${importSelected.size})` : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }
