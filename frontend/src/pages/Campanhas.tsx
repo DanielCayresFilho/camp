@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Upload, CheckCircle, Loader2, PauseCircle, Search } from "lucide-react";
+import { Upload, CheckCircle, Loader2, PauseCircle, PlayCircle, Trash2, Search } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { GlassCard } from "@/components/ui/glass-card";
 import {
@@ -42,6 +42,7 @@ import {
   Segment,
   Template as APITemplate
 } from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 
 interface Campaign {
@@ -71,6 +72,8 @@ const speedLabels = {
 };
 
 export default function Campanhas() {
+  const { user } = useAuth();
+  const isTaticaUser = user?.email?.endsWith('@tatica.com') || false;
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [segments, setSegments] = useState<Segment[]>([]);
   const [templates, setTemplates] = useState<APITemplate[]>([]);
@@ -124,9 +127,13 @@ export default function Campanhas() {
   const [isStatsOpen, setIsStatsOpen] = useState(false);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
 
-  // Delete confirmation state
+  // Pause/Resume/Delete confirmation state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [campaignToDelete, setCampaignToDelete] = useState<string | null>(null);
+  const [resumeDialogOpen, setResumeDialogOpen] = useState(false);
+  const [campaignToResume, setCampaignToResume] = useState<string | null>(null);
+  const [permanentDeleteDialogOpen, setPermanentDeleteDialogOpen] = useState(false);
+  const [campaignToPermanentDelete, setCampaignToPermanentDelete] = useState<string | null>(null);
 
   const loadCampaigns = useCallback(async () => {
     try {
@@ -202,7 +209,7 @@ export default function Campanhas() {
       key: "actions",
       label: "Ações",
       render: (campaign) => (
-        <div className="flex gap-2">
+        <div className="flex gap-1">
           <Button
             variant="ghost"
             size="icon"
@@ -215,6 +222,32 @@ export default function Campanhas() {
           >
             <PauseCircle className="h-4 w-4" />
           </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-green-500 hover:text-green-600 hover:bg-green-50"
+            title="Retomar Campanha"
+            onClick={() => {
+              setCampaignToResume(campaign.name);
+              setResumeDialogOpen(true);
+            }}
+          >
+            <PlayCircle className="h-4 w-4" />
+          </Button>
+          {isTaticaUser && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-red-500 hover:text-red-600 hover:bg-red-50"
+              title="Excluir Campanha Permanentemente"
+              onClick={() => {
+                setCampaignToPermanentDelete(campaign.name);
+                setPermanentDeleteDialogOpen(true);
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       )
     }
@@ -345,11 +378,11 @@ export default function Campanhas() {
     }
   };
 
-  const handleDeleteCampaign = async () => {
+  const handlePauseCampaign = async () => {
     if (!campaignToDelete) return;
 
     try {
-      await campaignsService.deleteByName(campaignToDelete); // Backend agora pausa
+      await campaignsService.deleteByName(campaignToDelete);
       toast({
         title: "Campanha Pausada",
         description: "Os envios foram interrompidos com sucesso.",
@@ -364,6 +397,50 @@ export default function Campanhas() {
     } finally {
       setDeleteDialogOpen(false);
       setCampaignToDelete(null);
+    }
+  };
+
+  const handleResumeCampaign = async () => {
+    if (!campaignToResume) return;
+
+    try {
+      const result = await campaignsService.resumeByName(campaignToResume);
+      toast({
+        title: "Campanha Retomada",
+        description: result.message || `${result.resumed} mensagens reagendadas.`,
+      });
+      loadCampaigns();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao retomar",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+      });
+    } finally {
+      setResumeDialogOpen(false);
+      setCampaignToResume(null);
+    }
+  };
+
+  const handlePermanentDeleteCampaign = async () => {
+    if (!campaignToPermanentDelete) return;
+
+    try {
+      const result = await campaignsService.deletePermanentlyByName(campaignToPermanentDelete);
+      toast({
+        title: "Campanha Excluída",
+        description: result.message || `${result.deleted} registros removidos.`,
+      });
+      loadCampaigns();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao excluir",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+      });
+    } finally {
+      setPermanentDeleteDialogOpen(false);
+      setCampaignToPermanentDelete(null);
     }
   };
 
@@ -578,8 +655,47 @@ export default function Campanhas() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteCampaign} className="bg-orange-500 hover:bg-orange-600">
+              <AlertDialogAction onClick={handlePauseCampaign} className="bg-orange-500 hover:bg-orange-600">
                 Pausar Envios
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        {/* Resume Confirmation */}
+        <AlertDialog open={resumeDialogOpen} onOpenChange={setResumeDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Retomar Campanha?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja retomar a campanha <strong>{campaignToResume}</strong>?
+                <br /><br />
+                As mensagens pausadas serão reagendadas para envio.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleResumeCampaign} className="bg-green-600 hover:bg-green-700">
+                Retomar Envios
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Permanent Delete Confirmation */}
+        <AlertDialog open={permanentDeleteDialogOpen} onOpenChange={setPermanentDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-red-600">⚠️ Excluir Campanha Permanentemente?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja <strong className="text-red-600">EXCLUIR PERMANENTEMENTE</strong> a campanha <strong>{campaignToPermanentDelete}</strong>?
+                <br /><br />
+                <strong>Esta ação NÃO pode ser desfeita.</strong> Todos os registros de envio, estatísticas e dados serão apagados definitivamente.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handlePermanentDeleteCampaign} className="bg-red-600 hover:bg-red-700">
+                Excluir Permanentemente
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

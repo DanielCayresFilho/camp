@@ -586,6 +586,14 @@ export const campaignsService = {
     return apiRequest(`/campaigns/by-name/${encodeURIComponent(name)}`, { method: 'DELETE' });
   },
 
+  resumeByName: async (name: string): Promise<{ resumed: number; name: string; message: string }> => {
+    return apiRequest(`/campaigns/resume/${encodeURIComponent(name)}`, { method: 'POST' });
+  },
+
+  deletePermanentlyByName: async (name: string): Promise<{ deleted: number; name: string; message: string }> => {
+    return apiRequest(`/campaigns/permanent/${encodeURIComponent(name)}`, { method: 'DELETE' });
+  },
+
   getCampaignSummaries: async (filters?: any): Promise<any[]> => {
     const query = filters ? `?${new URLSearchParams(filters).toString()}` : '';
     return apiRequest(`/campaigns/summary${query}`);

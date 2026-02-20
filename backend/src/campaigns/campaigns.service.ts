@@ -540,6 +540,91 @@ export class CampaignsService {
     return { paused: pausedCount, name, message: `Campanha pausada! ${pausedCount} mensagens interrompidas.` };
   }
 
+  /**
+   * Resume uma campanha pausada — muda PAUSED: de volta para SCHEDULED:
+   */
+  async resumeByName(name: string) {
+    // Buscar mensagens pausadas
+    const paused = await this.prisma.campaign.findMany({
+      where: {
+        name,
+        response: false,
+        dispatchedAt: null,
+        messageId: { startsWith: 'PAUSED' }
+      }
+    });
+
+    if (paused.length === 0) {
+      const count = await this.prisma.campaign.count({ where: { name } });
+      if (count === 0) {
+        throw new NotFoundException(`Nenhuma campanha encontrada com o nome: ${name}`);
+      }
+      return { resumed: 0, message: "Nenhuma mensagem pausada encontrada para retomar." };
+    }
+
+    let resumedCount = 0;
+    let accumulatedDelayMs = 0;
+
+    for (const c of paused) {
+      const currentId = c.messageId || '';
+      if (currentId.startsWith('PAUSED:')) {
+        resumedCount++;
+
+        // Delay aleatório entre 1-3 min entre cada mensagem (anti-ban)
+        accumulatedDelayMs += 60000 + Math.random() * 120000;
+
+        // Atualizar DB: marcar como SCHEDULED novamente
+        const newTimestamp = Date.now() + accumulatedDelayMs;
+        await this.prisma.campaign.update({
+          where: { id: c.id },
+          data: {
+            messageId: `SCHEDULED:${newTimestamp}`
+          }
+        });
+
+        // Re-adicionar à fila Bull para o processor pegar
+        await this.campaignsQueue.add(
+          'send-campaign-message',
+          {
+            campaignId: c.id,
+            contactName: c.contactName,
+            contactPhone: c.contactPhone,
+            contactSegment: c.contactSegment,
+            lineId: c.lineReceptor,
+            message: c.message,
+            useTemplate: c.useTemplate,
+            templateId: c.templateId,
+            templateVariables: c.templateVariables,
+          },
+          {
+            delay: accumulatedDelayMs,
+            attempts: 3,
+            backoff: {
+              type: 'exponential',
+              delay: 2000,
+            },
+          }
+        );
+      }
+    }
+
+    return { resumed: resumedCount, name, message: `Campanha retomada! ${resumedCount} mensagens reagendadas para envio.` };
+  }
+
+  /**
+   * Deleta permanentemente todos os registros de uma campanha
+   */
+  async deletePermanentlyByName(name: string) {
+    const count = await this.prisma.campaign.count({ where: { name } });
+    if (count === 0) {
+      throw new NotFoundException(`Nenhuma campanha encontrada com o nome: ${name}`);
+    }
+
+    const deleted = await this.prisma.campaign.deleteMany({ where: { name } });
+
+    return { deleted: deleted.count, name, message: `Campanha "${name}" excluída permanentemente. ${deleted.count} registros removidos.` };
+  }
+
   async getStats(campaignName: string) {
     // Buscar todas as campanhas com este nome
     const campaigns = await this.prisma.campaign.findMany({

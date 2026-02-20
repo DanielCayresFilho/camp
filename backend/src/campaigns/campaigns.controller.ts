@@ -264,4 +264,18 @@ export class CampaignsController {
   removeByName(@Param("name") name: string) {
     return this.campaignsService.removeByName(name);
   }
+
+  @Post("resume/:name")
+  @Roles(Role.admin, Role.supervisor, Role.digital)
+  @ApiOperation({ summary: "Resume a paused campaign" })
+  resumeByName(@Param("name") name: string) {
+    return this.campaignsService.resumeByName(name);
+  }
+
+  @Delete("permanent/:name")
+  @Roles(Role.admin)
+  @ApiOperation({ summary: "Permanently delete a campaign (admin only)" })
+  deletePermanentlyByName(@Param("name") name: string) {
+    return this.campaignsService.deletePermanentlyByName(name);
+  }
 }

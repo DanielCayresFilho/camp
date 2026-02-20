@@ -85,6 +85,11 @@ export class MessageSendingService {
             `${evolutionUrl}/message/sendText/${instanceName}`,
             {
               number: cleanPhone,
+              options: {
+                delay: 1500,
+                presence: 'composing',
+                linkPreview: false,
+              },
               text: finalMessage,
             },
             {
@@ -156,11 +161,18 @@ export class MessageSendingService {
       const cleanPhone = this.phoneValidationService.cleanPhone(contactPhone);
 
       const sendTypingAction = async () => {
+        const presenceValue = isTyping ? 'composing' : 'paused';
+        const url = `${evolutionUrl}/chat/sendPresence/${instanceName}`;
+        this.logger.log(
+          `🔍 [DEBUG] sendTyping (via sendPresence) URL: ${url} | presence: ${presenceValue}`,
+          'MessageSending',
+        );
         return await axios.post(
-          `${evolutionUrl}/chat/sendTyping/${instanceName}`,
+          url,
           {
             number: cleanPhone,
-            value: isTyping,
+            delay: 1500,
+            presence: presenceValue,
           },
           {
             headers: { 'apikey': evolutionKey },
@@ -196,8 +208,13 @@ export class MessageSendingService {
       const cleanPhone = this.phoneValidationService.cleanPhone(contactPhone);
 
       const checkAction = async () => {
+        const url = `${evolutionUrl}/chat/whatsappNumbers/${instanceName}`;
+        this.logger.log(
+          `🔍 [DEBUG] checkWhatsapp URL: ${url} | apikey: ${evolutionKey?.substring(0, 8)}...`,
+          'MessageSending',
+        );
         const response = await axios.post(
-          `${evolutionUrl}/chat/whatsappNumbers/${instanceName}`,
+          url,
           {
             numbers: [cleanPhone],
           },
@@ -262,10 +279,16 @@ export class MessageSendingService {
       const cleanPhone = this.phoneValidationService.cleanPhone(contactPhone);
 
       const action = async () => {
+        const url = `${evolutionUrl}/chat/sendPresence/${instanceName}`;
+        this.logger.log(
+          `🔍 [DEBUG] sendPresence URL: ${url}`,
+          'MessageSending',
+        );
         return await axios.post(
-          `${evolutionUrl}/chat/sendPresence/${instanceName}`,
+          url,
           {
             number: cleanPhone,
+            delay: 5000,
             presence: presence,
           },
           {
