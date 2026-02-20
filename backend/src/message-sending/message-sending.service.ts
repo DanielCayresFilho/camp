@@ -27,7 +27,7 @@ export class MessageSendingService {
     private logger: AppLoggerService,
     private spintaxService: SpintaxService,
     private phoneValidationService: PhoneValidationService,
-  ) {}
+  ) { }
 
   /**
    * Envia mensagem via Evolution API com circuit breaker e retry inteligente
@@ -37,7 +37,7 @@ export class MessageSendingService {
 
     try {
       const cleanPhone = this.phoneValidationService.cleanPhone(contactPhone);
-      
+
       // Aplicar Spintax se necessário
       let finalMessage = message;
       if (this.spintaxService.hasSpintax(message)) {
@@ -118,7 +118,7 @@ export class MessageSendingService {
     } catch (error: any) {
       const errorMessage = error.message || 'Erro desconhecido';
       const isCircuitOpen = error.name === 'CircuitBreakerOpenError';
-      
+
       this.logger.error(
         `Erro ao enviar mensagem para ${contactPhone}`,
         error.stack,
@@ -154,7 +154,7 @@ export class MessageSendingService {
   ): Promise<void> {
     try {
       const cleanPhone = this.phoneValidationService.cleanPhone(contactPhone);
-      
+
       const sendTypingAction = async () => {
         return await axios.post(
           `${evolutionUrl}/chat/sendTyping/${instanceName}`,
@@ -180,6 +180,112 @@ export class MessageSendingService {
         `Erro ao enviar typing indicator`,
         'MessageSending',
         { contactPhone, error: error.message, traceId },
+      );
+    }
+  }
+  /**
+   * Verifica se o número possui WhatsApp válido
+   */
+  async checkWhatsappNumber(
+    evolutionUrl: string,
+    evolutionKey: string,
+    instanceName: string,
+    contactPhone: string,
+  ): Promise<boolean> {
+    try {
+      const cleanPhone = this.phoneValidationService.cleanPhone(contactPhone);
+
+      const checkAction = async () => {
+        const response = await axios.post(
+          `${evolutionUrl}/chat/whatsappNumbers/${instanceName}`,
+          {
+            numbers: [cleanPhone],
+          },
+          {
+            headers: { 'apikey': evolutionKey },
+            timeout: 5000,
+          }
+        );
+
+        // Evolution retorna array de objetos: [{ number, exists: true/false, jid }]
+        const data = response.data;
+        if (Array.isArray(data) && data.length > 0) {
+          return data[0].exists === true;
+        }
+        return false;
+      };
+
+      const breakerName = `evolution-check-${instanceName}`;
+      // Usar circuit breaker mas com failback false se erro
+      try {
+        return await this.circuitBreakerService.execute(breakerName, checkAction, [], {
+          timeout: 5000,
+          errorThresholdPercentage: 50,
+        });
+      } catch (e) {
+        // Se der erro de conexão/timeout, assumimos que é válido para não bloquear envio indevidamente?
+        // OU assumimos que é inválido para não gastar recurso? 
+        // User pediu validação "sempre". Se falhar a validação, melhor logar erro e talvez pular ou tentar envio (fail-open vs fail-close).
+        // Vou fazer fail-open (retorna true) se for erro de rede, para não travar campanha por instabilidade na API de check,
+        // mas logar o erro.
+        // REPENSANDO: O usuário quer economizar envio ou limpar lista. Se API falhar, talvez queira tentar enviar.
+        this.logger.error(
+          `Erro ao validar número ${cleanPhone}`,
+          e.stack,
+          'MessageSending',
+          { error: e.message }
+        );
+        return true; // Fail-open: tenta enviar mesmo assim
+      }
+
+    } catch (error: any) {
+      this.logger.error(
+        `Erro geral ao validar número ${contactPhone}`,
+        error.stack,
+        'MessageSending'
+      );
+      return true; // Fail-open
+    }
+  }
+
+  /**
+   * Envia status de presença (available/unavailable)
+   */
+  async sendPresence(
+    evolutionUrl: string,
+    evolutionKey: string,
+    instanceName: string,
+    contactPhone: string,
+    presence: 'available' | 'unavailable' | 'composing' | 'paused',
+  ): Promise<void> {
+    try {
+      const cleanPhone = this.phoneValidationService.cleanPhone(contactPhone);
+
+      const action = async () => {
+        return await axios.post(
+          `${evolutionUrl}/chat/sendPresence/${instanceName}`,
+          {
+            number: cleanPhone,
+            presence: presence,
+          },
+          {
+            headers: { 'apikey': evolutionKey },
+            timeout: 5000,
+          }
+        );
+      };
+
+      const breakerName = `evolution-presence-${instanceName}`;
+      await this.circuitBreakerService.execute(breakerName, action, [], {
+        timeout: 3000,
+        errorThresholdPercentage: 70, // Tolerante
+      });
+    } catch (error: any) {
+      // Fail silently, it's just a cosmetic/anti-ban feature
+      this.logger.warn(
+        `Erro ao enviar presence ${presence}`,
+        'MessageSending',
+        { error: error.message }
       );
     }
   }

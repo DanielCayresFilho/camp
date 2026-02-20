@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/services/api";
-import { BarChart3, TrendingUp, Clock, DollarSign, Eye, EyeOff, Filter } from "lucide-react";
+import { BarChart3, TrendingUp, Clock, DollarSign, Eye, EyeOff, Filter, AlertCircle } from "lucide-react";
 import {
     Select,
     SelectContent,
@@ -17,6 +17,7 @@ interface DashboardStats {
     queueCount: number;
     totalCost: number;
     costPerMessage: number;
+    totalInvalid?: number;
 }
 
 interface CampaignSummary {
@@ -32,6 +33,7 @@ export function DashboardCampanhas() {
         queueCount: 0,
         totalCost: 0,
         costPerMessage: 0.30,
+        totalInvalid: 0,
     });
     const [campaigns, setCampaigns] = useState<CampaignSummary[]>([]);
     const [selectedCampaign, setSelectedCampaign] = useState<string>("all");
@@ -106,7 +108,7 @@ export function DashboardCampanhas() {
                 </div>
 
                 {/* KPI Cards */}
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">

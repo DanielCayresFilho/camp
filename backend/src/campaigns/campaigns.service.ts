@@ -639,11 +639,22 @@ export class CampaignsService {
       whereClause.name = campaignName;
     }
 
-    // 1. Total de disparos realizados: Status response=true ou dispatchedAt != null
+    // 1. Total de disparos realizados (SUCESSO OU FALHA DE ENVIO, MAS TENTADO)
+    // Excluir os marcados como INVALID_WHATSAPP pois não foram "enviados" de fato, foram pulados
     const totalSent = await this.prisma.campaign.count({
       where: {
         ...whereClause,
         dispatchedAt: { not: null },
+        messageId: { not: 'INVALID_WHATSAPP' } // 🚀 FEATURE: Não contar inválidos como enviados para não cobrar custo
+      },
+    });
+
+    // 1.1 Contar números inválidos (sem WhatsApp)
+    // 🚀 FEATURE: Métrica de números sem WhatsApp
+    const totalInvalid = await this.prisma.campaign.count({
+      where: {
+        ...whereClause,
+        messageId: 'INVALID_WHATSAPP'
       },
     });
 
@@ -655,12 +666,14 @@ export class CampaignsService {
       },
     });
 
-    // 3. Custo (R$ 0,30 por mensagem)
+    // 3. Custo (R$ 0,30 por mensagem) - Apenas para mensagens realmente tentadas
     const costPerMessage = 0.30;
     const totalCost = totalSent * costPerMessage;
 
     return {
       totalSent,
+      totalInvalid, // Adicionada nova métrica
+      queueCount,
       totalCost,
       costPerMessage
     };

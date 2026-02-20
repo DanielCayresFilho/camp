@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { BullModule } from '@nestjs/bull';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaService } from './prisma.service';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -44,6 +45,7 @@ import { ArchivingModule } from './archiving/archiving.module';
     MessageSendingModule,
     CacheModule,
     ArchivingModule,
+    ScheduleModule.forRoot(),
     BullModule.forRoot({
       redis: {
         host: process.env.REDIS_HOST || 'localhost',
@@ -79,4 +81,4 @@ import { ArchivingModule } from './archiving/archiving.module';
   providers: [PrismaService],
   exports: [PrismaService],
 })
-export class AppModule {}
+export class AppModule { }

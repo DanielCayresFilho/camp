@@ -123,6 +123,38 @@ export class CampaignsProcessor {
       // Normalizar telefone (remover espaços, hífens, adicionar 55 se necessário)
       const cleanPhone = this.phoneValidationService.cleanPhone(contactPhone);
 
+      // ========== VALIDAÇÃO DE WHATSAPP ==========
+      // 🚀 FEATURE: Verificar se o número tem WhatsApp antes de enviar
+      const hasWhatsapp = await this.messageSendingService.checkWhatsappNumber(
+        evolution.evolutionUrl,
+        evolution.evolutionKey,
+        instanceName,
+        cleanPhone
+      );
+
+      if (!hasWhatsapp) {
+        this.logger.warn(
+          `⚠️ [Campanha] Número ${cleanPhone} não possui WhatsApp válido. Pulando.`,
+          'CampaignsProcessor',
+          { campaignId }
+        );
+
+        // Marcar como processado mas inválido
+        await this.prisma.campaign.update({
+          where: { id: campaignId },
+          data: {
+            response: true,
+            dispatchedAt: new Date(),
+            messageId: 'INVALID_WHATSAPP',
+            delivered: false,
+            read: false
+          }
+        });
+
+        // Pular para o próximo, não enviar
+        return;
+      }
+
       let retries = 0;
       let sent = false;
       let finalMessage = message || 'Olá! Esta é uma mensagem da nossa campanha.';
@@ -130,20 +162,65 @@ export class CampaignsProcessor {
       while (retries < 3 && !sent) {
         try {
           // ========== PREVENÇÃO DE BANIMENTO ==========
-          // 1. Enviar typing indicator para simular digitação humana
+          // 1. Enviar presence available (ficar online)
+          await this.messageSendingService.sendPresence(
+            evolution.evolutionUrl, evolution.evolutionKey, instanceName, cleanPhone, 'available'
+          );
+
+          // 2. Enviar typing indicator para simular digitação humana
           try {
-            await this.messageSendingService.sendTypingIndicator(
-              evolution.evolutionUrl,
-              evolution.evolutionKey,
-              instanceName,
-              cleanPhone,
-              true,
-            );
-            this.logger.log(
-              `📝 [Campanha] Typing indicator enviado para ${cleanPhone}`,
-              'CampaignsProcessor',
-              { campaignId, contactPhone: cleanPhone },
-            );
+            // ========== HUMANIZAÇÃO DE TYPING ==========
+            // 🚀 FEATURE: Typing aleatório de 8 a 29 segundos
+            const minTime = 8000;
+            const maxTime = 29000;
+            const totalTypingTime = Math.floor(Math.random() * (maxTime - minTime + 1) + minTime);
+
+            // 🚀 FEATURE: Chance de "Double Typing" (começar, parar, recomeçar) - 50%
+            const shouldDoubleType = Math.random() > 0.5;
+
+            if (shouldDoubleType) {
+              // Dividir o tempo: digita um pouco, para, digita o resto
+              const firstPart = Math.floor(totalTypingTime * (0.3 + Math.random() * 0.3)); // 30-60% do tempo
+              const pauseTime = Math.floor(Math.random() * 3000) + 2000; // Pausa de 2-5s
+              const secondPart = totalTypingTime - firstPart;
+
+              this.logger.log(
+                `Typing Duplo: ${firstPart}ms -> Pausa ${pauseTime}ms -> ${secondPart}ms (Total: ${totalTypingTime + pauseTime}ms)`,
+                'CampaignsProcessor',
+                { campaignId, contactPhone: cleanPhone }
+              );
+
+              // 1. Primeira parte
+              await this.messageSendingService.sendTypingIndicator(
+                evolution.evolutionUrl, evolution.evolutionKey, instanceName, cleanPhone, true
+              );
+              await new Promise(resolve => setTimeout(resolve, firstPart));
+
+              // 2. Parar (simula pensar/corrigir)
+              await this.messageSendingService.sendTypingIndicator(
+                evolution.evolutionUrl, evolution.evolutionKey, instanceName, cleanPhone, false
+              );
+              await new Promise(resolve => setTimeout(resolve, pauseTime));
+
+              // 3. Segunda parte
+              await this.messageSendingService.sendTypingIndicator(
+                evolution.evolutionUrl, evolution.evolutionKey, instanceName, cleanPhone, true
+              );
+              await new Promise(resolve => setTimeout(resolve, secondPart));
+
+            } else {
+              // Typing simples
+              this.logger.log(
+                `Typing Simples: ${totalTypingTime}ms`,
+                'CampaignsProcessor',
+                { campaignId, contactPhone: cleanPhone }
+              );
+
+              await this.messageSendingService.sendTypingIndicator(
+                evolution.evolutionUrl, evolution.evolutionKey, instanceName, cleanPhone, true
+              );
+              await new Promise(resolve => setTimeout(resolve, totalTypingTime));
+            }
           } catch (typingError: any) {
             // Não bloquear envio se typing falhar
             this.logger.warn(
@@ -361,6 +438,17 @@ export class CampaignsProcessor {
           }
 
           sent = true;
+
+          // 🚀 FEATURE: PRESENCE MANAGEMENT (offline após enviar)
+          // Simular que a pessoa fechou o app 3-7 segundos depois de enviar
+          const offlineDelay = Math.floor(Math.random() * 4000) + 3000;
+          setTimeout(async () => {
+            try {
+              await this.messageSendingService.sendPresence(
+                evolution.evolutionUrl, evolution.evolutionKey, instanceName, cleanPhone, 'unavailable'
+              );
+            } catch (e) { }
+          }, offlineDelay);
 
           // Buscar operadores da linha e distribuir (máximo 2)
           const lineOperators = await this.prisma.lineOperator.findMany({

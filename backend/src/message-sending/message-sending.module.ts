@@ -11,12 +11,11 @@ import { PhoneValidationModule } from '../phone-validation/phone-validation.modu
   imports: [
     CircuitBreakerModule,
     LoggerModule,
-    HumanizationModule,
     SpintaxModule,
     PhoneValidationModule,
   ],
   providers: [MessageSendingService, PrismaService],
   exports: [MessageSendingService],
 })
-export class MessageSendingModule {}
+export class MessageSendingModule { }
 
