@@ -430,7 +430,7 @@ export default function Linhas() {
       const result = await linesService.importInstances(
         importEvolution,
         toImport.map(i => ({ instanceName: i.instanceName, phone: i.phone })),
-        importSegment ? Number(importSegment) : undefined
+        (importSegment && importSegment !== 'none') ? Number(importSegment) : undefined
       );
       playSuccessSound();
       toast({
@@ -810,7 +810,7 @@ export default function Linhas() {
                     <SelectValue placeholder="Sem segmento" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Sem segmento</SelectItem>
+                    <SelectItem value="none">Sem segmento</SelectItem>
                     {segments.map(s => (
                       <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
                     ))}
@@ -844,8 +844,8 @@ export default function Linhas() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${inst.state === 'open' ? 'bg-green-100 text-green-700' :
-                            inst.state === 'close' ? 'bg-orange-100 text-orange-700' :
-                              'bg-gray-100 text-gray-600'
+                          inst.state === 'close' ? 'bg-orange-100 text-orange-700' :
+                            'bg-gray-100 text-gray-600'
                           }`}>
                           {inst.state === 'open' ? '🟢 Conectada' : inst.state === 'close' ? '🔴 Desconectada' : inst.state}
                         </span>
