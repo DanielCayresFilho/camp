@@ -32,7 +32,7 @@ export class ApiMessagesService {
     @Inject(forwardRef(() => LinesService))
     private linesService: LinesService,
     private controlPanelService: ControlPanelService,
-  ) {}
+  ) { }
 
   /**
    * Verifica se pode enviar mensagem CPC (Contato por Cliente)
@@ -55,7 +55,7 @@ export class ApiMessagesService {
 
     // Buscar primeira mensagem do operador (primeira interação)
     const firstOperatorMessage = conversations.find(c => c.sender === 'operator');
-    
+
     if (!firstOperatorMessage) {
       // Se não há mensagem do operador, pode enviar
       return { canSend: true };
@@ -160,7 +160,7 @@ export class ApiMessagesService {
       // Para cada linha, verificar quantos operadores estão vinculados
       for (const line of filteredLines) {
         let operatorsCount = 0;
-        
+
         // No modo compartilhado, não verificar limite de operadores
         if (!sharedLineMode) {
           operatorsCount = await (this.prisma as any).lineOperator.count({
@@ -247,13 +247,13 @@ export class ApiMessagesService {
     try {
       await this.linesService.assignOperatorToLine(availableLine.id, operator.id);
       console.log(`✅ [ApiMessages] Linha ${availableLine.phone} atribuída automaticamente ao operador ${operator.email}`);
-      
+
       // Se encontrou linha padrão e operador tem segmento, atualizar o segmento da linha
       // Verificar se a linha pertence ao segmento "Padrão"
       const defaultSegment = await this.prisma.segment.findUnique({
         where: { name: 'Padrão' },
       });
-      
+
       if (defaultSegment && availableLine.segment === defaultSegment.id && operator.segment) {
         await this.prisma.linesStock.update({
           where: { id: availableLine.id },
@@ -286,7 +286,7 @@ export class ApiMessagesService {
         return false;
       }
 
-      const instanceName = `line_${line.phone.replace(/\D/g, '')}`;
+      const instanceName = line.instanceName || `line_${line.phone.replace(/\D/g, '')}`;
       const cleanPhone = this.phoneValidationService.cleanPhone(phone);
 
       await axios.post(
@@ -646,7 +646,7 @@ export class ApiMessagesService {
     variables: TemplateVariableDto[],
   ): Promise<boolean> {
     try {
-      const instanceName = `line_${line.phone.replace(/\D/g, '')}`;
+      const instanceName = line.instanceName || `line_${line.phone.replace(/\D/g, '')}`;
       const cleanPhone = phone.replace(/\D/g, '');
 
       // Substituir variáveis no texto do template

@@ -254,6 +254,7 @@ export class LinesService {
       const newLine = await this.prisma.linesStock.create({
         data: {
           ...createLineDto,
+          instanceName, // Salvar nome da instância na Evolution
           createdBy, // Salvar quem criou a linha
         },
       });
@@ -380,7 +381,7 @@ export class LinesService {
     }
 
     try {
-      const instanceName = `line_${line.phone.replace(/\D/g, '')}`;
+      const instanceName = line.instanceName || `line_${line.phone.replace(/\D/g, '')}`;
 
       // Primeiro, verificar o status da conexão
       try {
@@ -530,7 +531,7 @@ export class LinesService {
     }
 
     try {
-      const instanceName = `line_${line.phone.replace(/\D/g, '')}`;
+      const instanceName = line.instanceName || `line_${line.phone.replace(/\D/g, '')}`;
       const webhookUrl = `${process.env.APP_URL || 'http://localhost:3000'}/webhooks/evolution`;
 
       const webhookData = {
@@ -574,7 +575,7 @@ export class LinesService {
     });
 
     try {
-      const instanceName = `line_${line.phone.replace(/\D/g, '')}`;
+      const instanceName = line.instanceName || `line_${line.phone.replace(/\D/g, '')}`;
       await axios.delete(
         `${evolution.evolutionUrl}/instance/delete/${instanceName}`,
         {
@@ -2004,6 +2005,7 @@ export class LinesService {
         await this.prisma.linesStock.create({
           data: {
             phone: inst.phone,
+            instanceName: inst.instanceName, // Salvar nome real da instância na Evolution
             evolutionName: evolution.evolutionName,
             lineStatus: 'active',
             segment: segment || null,

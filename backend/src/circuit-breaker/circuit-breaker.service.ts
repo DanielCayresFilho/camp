@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CircuitBreaker } from 'opossum';
+import CircuitBreaker from 'opossum';
 import { AppLoggerService } from '../logger/logger.service';
 
 interface CircuitBreakerOptions {
@@ -13,7 +13,7 @@ interface CircuitBreakerOptions {
 export class CircuitBreakerService {
   private breakers: Map<string, CircuitBreaker> = new Map();
 
-  constructor(private logger: AppLoggerService) {}
+  constructor(private logger: AppLoggerService) { }
 
   /**
    * Cria ou retorna um circuit breaker existente

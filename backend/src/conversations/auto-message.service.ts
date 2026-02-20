@@ -199,7 +199,7 @@ export class AutoMessageService implements OnModuleInit {
           });
 
           if (evolution) {
-            const instanceName = `line_${line.phone.replace(/\D/g, '')}`;
+            const instanceName = line.instanceName || `line_${line.phone.replace(/\D/g, '')}`;
 
             await this.websocketGateway.sendMessageToEvolution(
               evolution.evolutionUrl,

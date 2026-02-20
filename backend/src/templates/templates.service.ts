@@ -507,7 +507,7 @@ export class TemplatesService {
     variables: TemplateVariableDto[],
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
-      const instanceName = `line_${line.phone.replace(/\D/g, '')}`;
+      const instanceName = line.instanceName || `line_${line.phone.replace(/\D/g, '')}`;
       const cleanPhone = this.phoneValidationService.cleanPhone(phone);
 
       // Substituir variáveis no texto

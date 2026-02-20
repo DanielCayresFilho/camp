@@ -134,7 +134,7 @@ export class LineAvailabilityMonitorService {
         });
 
         if (evolution) {
-          const instanceName = `line_${line.phone.replace(/\D/g, '')}`;
+          const instanceName = line.instanceName || `line_${line.phone.replace(/\D/g, '')}`;
           const lineStatus = await this.healthCheckCacheService.getConnectionStatus(
             evolution.evolutionUrl,
             evolution.evolutionKey,

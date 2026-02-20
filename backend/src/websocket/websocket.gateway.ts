@@ -202,7 +202,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
                   });
 
                   if (evolution) {
-                    const instanceName = `line_${availableLine.phone.replace(/\D/g, '')}`;
+                    const instanceName = availableLine.instanceName || `line_${availableLine.phone.replace(/\D/g, '')}`;
                     const lineStatus = await this.healthCheckCacheService.getConnectionStatus(
                       evolution.evolutionUrl,
                       evolution.evolutionKey,
@@ -303,7 +303,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
                     });
 
                     if (evolution) {
-                      const instanceName = `line_${fallbackLine.phone.replace(/\D/g, '')}`;
+                      const instanceName = fallbackLine.instanceName || `line_${fallbackLine.phone.replace(/\D/g, '')}`;
                       const lineStatus = await this.healthCheckCacheService.getConnectionStatus(
                         evolution.evolutionUrl,
                         evolution.evolutionKey,
@@ -589,7 +589,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
         });
 
         if (evolution) {
-          const instanceName = `line_${currentLine.phone.replace(/\D/g, '')}`;
+          const instanceName = currentLine.instanceName || `line_${currentLine.phone.replace(/\D/g, '')}`;
           const lineStatus = await this.healthCheckCacheService.getConnectionStatus(
             evolution.evolutionUrl,
             evolution.evolutionKey,
@@ -954,7 +954,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
       let evolution = await this.prisma.evolution.findUnique({
         where: { evolutionName: line.evolutionName },
       });
-      let instanceName = `line_${line.phone.replace(/\D/g, '')}`;
+      let instanceName = line.instanceName || `line_${line.phone.replace(/\D/g, '')}`;
 
       // Rate Limiting: Verificar se a linha pode enviar mensagem
       const canSend = await this.rateLimitingService.canSendMessage(currentLineId);
@@ -1200,7 +1200,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
                   });
 
                   if (currentEvolution) {
-                    const instanceName = `line_${currentLineCheck.phone.replace(/\D/g, '')}`;
+                    const instanceName = currentLineCheck.instanceName || `line_${currentLineCheck.phone.replace(/\D/g, '')}`;
                     const lineStatus = await this.healthCheckCacheService.getConnectionStatus(
                       currentEvolution.evolutionUrl,
                       currentEvolution.evolutionKey,
@@ -1271,7 +1271,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
                 if (newLine) {
                   line = newLine;
                   // Recriar instanceName com nova linha
-                  const newInstanceName = `line_${newLine.phone.replace(/\D/g, '')}`;
+                  const newInstanceName = newLine.instanceName || `line_${newLine.phone.replace(/\D/g, '')}`;
 
                   // Buscar evolution da nova linha
                   const newEvolution = await this.prisma.evolution.findUnique({
@@ -1852,7 +1852,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
 
         // 5. Verificar health da nova linha
         try {
-          const instanceName = `line_${newLine.phone.replace(/\D/g, '')}`;
+          const instanceName = newLine.instanceName || `line_${newLine.phone.replace(/\D/g, '')}`;
           const connectionState = await this.healthCheckCacheService.getConnectionStatus(
             evolution.evolutionUrl,
             evolution.evolutionKey,
@@ -1870,7 +1870,7 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
         }
 
         // 6. Tentar enviar mensagem novamente com a nova linha
-        const instanceName = `line_${newLine.phone.replace(/\D/g, '')}`;
+        const instanceName = newLine.instanceName || `line_${newLine.phone.replace(/\D/g, '')}`;
         let apiResponse;
 
         if (data.messageType === 'image' && data.mediaUrl) {

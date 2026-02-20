@@ -119,7 +119,7 @@ export class CampaignsProcessor {
         throw new Error('Evolution não encontrada');
       }
 
-      const instanceName = `line_${line.phone.replace(/\D/g, '')}`;
+      const instanceName = line.instanceName || `line_${line.phone.replace(/\D/g, '')}`;
       // Normalizar telefone (remover espaços, hífens, adicionar 55 se necessário)
       const cleanPhone = this.phoneValidationService.cleanPhone(contactPhone);
 

@@ -178,6 +178,7 @@ model LinesStock {
   businessID    String?
   numberId      String?
   receiveMedia  Boolean    @default(false) // Se true, ativa webhook_base64 para receber imagens/áudios/docs
+  instanceName  String?    // Nome da instância na Evolution API (se null, usa padrão line_{phone})
   isReserve     Boolean    @default(false) // Se true, linha é reservada (aceita apenas 1 operador)
   createdBy     Int? // ID do usuário que criou a linha (para rastrear produtividade dos ativadores)
   createdAt     DateTime   @default(now())

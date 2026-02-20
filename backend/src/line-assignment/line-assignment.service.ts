@@ -21,7 +21,7 @@ export class LineAssignmentService {
     private controlPanelService: ControlPanelService,
     private logger: AppLoggerService,
     private healthCheckCacheService: HealthCheckCacheService,
-  ) {}
+  ) { }
 
   /**
    * Encontra uma linha disponível para um operador
@@ -119,7 +119,7 @@ export class LineAssignmentService {
             return { ...line, isConnected: false };
           }
 
-          const instanceName = `line_${line.phone.replace(/\D/g, '')}`;
+          const instanceName = line.instanceName || `line_${line.phone.replace(/\D/g, '')}`;
 
           try {
             const connectionStatus = await this.healthCheckCacheService.getConnectionStatus(
@@ -131,13 +131,13 @@ export class LineAssignmentService {
             // Considerar conectada se NÃO for explicitamente desconectada/conectando
             // 'unknown' e outros status são permitidos
             const isDisconnected = connectionStatus === 'close' ||
-                                  connectionStatus === 'CLOSE' ||
-                                  connectionStatus === 'disconnected' ||
-                                  connectionStatus === 'DISCONNECTED' ||
-                                  connectionStatus === 'closeTimeout';
+              connectionStatus === 'CLOSE' ||
+              connectionStatus === 'disconnected' ||
+              connectionStatus === 'DISCONNECTED' ||
+              connectionStatus === 'closeTimeout';
 
             const isConnecting = connectionStatus === 'connecting' ||
-                                connectionStatus === 'CONNECTING';
+              connectionStatus === 'CONNECTING';
 
             const isConnected = !isDisconnected && !isConnecting;
 
@@ -229,7 +229,7 @@ export class LineAssignmentService {
         // - Depois disso, o segmento da linha NUNCA mais pode ser alterado
         const shouldUpdateSegment =
           (candidateLine.segment === null ||
-           (defaultSegment && candidateLine.segment === defaultSegment.id)) &&
+            (defaultSegment && candidateLine.segment === defaultSegment.id)) &&
           userSegment !== null;
 
         if (shouldUpdateSegment) {
